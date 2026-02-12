@@ -47,7 +47,7 @@ pub fn run(args: &GraphArgs, format: OutputFormat) -> Result<()> {
         OutputFormat::Json => {
             println!("{}", serde_json::to_string_pretty(&graph)?);
         }
-        OutputFormat::Text => {
+        OutputFormat::Text | OutputFormat::Markdown => {
             println!(
                 "Context graph: {} nodes, {} edges",
                 graph.nodes.len(),

@@ -45,7 +45,7 @@ pub fn run(args: &ReviewArgs, format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&json)?);
         }
-        OutputFormat::Text => {
+        OutputFormat::Text | OutputFormat::Markdown => {
             println!("Branch review: {}\n", review.range);
             println!(
                 "  Commits: {}   Engrams: {}",

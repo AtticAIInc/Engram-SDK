@@ -34,7 +34,7 @@ cd sdks/typescript && npm install && npx vitest run
 
 ## Architecture
 
-Cargo workspace with 6 crates under `crates/`:
+Cargo workspace with 7 crates under `crates/`:
 
 ```
 crates/engram-core/      Core library: data model, Git storage engine, config, error types, hooks
@@ -42,14 +42,15 @@ crates/engram-capture/   PTY wrapper, file change detection, session builder, im
 crates/engram-query/     Tantivy full-text search index, file tracing, engram diff, context graph, branch review
 crates/engram-protocol/  Push/pull/fetch engram refs between repos via Git refspecs
 crates/engram-sdk/       Fluent Rust SDK: EngramSession::begin() -> log_*() -> commit()
-crates/engram-cli/       CLI binary (installed as `engram`) — 18 public subcommands + 1 hidden
+crates/engram-mcp/       MCP server for AI agent integration (rmcp crate, stdio transport)
+crates/engram-cli/       CLI binary (installed as `engram`) — 20 public subcommands + 1 hidden
 sdks/python/             Python SDK (pygit2), install with pip
 sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with npm
 ```
 
-### CLI Commands (19 total)
+### CLI Commands (21 total)
 
-`init`, `record`, `import`, `log`, `show`, `search`, `trace`, `diff`, `graph`, `review`, `stats`, `blame`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
+`init`, `record`, `import`, `log`, `show`, `search`, `trace`, `diff`, `graph`, `review`, `pr-summary`, `mcp`, `stats`, `blame`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
 
 ### engram-core structure
 
@@ -97,6 +98,11 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 - **Cross-SDK serialization**: Rust is canonical. Python and TypeScript SDKs must match snake_case enum values.
 - **File locking**: `fs2` crate for advisory locks on `ActiveSession` (MSRV 1.80 compatible — use `fs2::FileExt::` fully-qualified calls to avoid name collision with Rust 1.89+ std methods)
 - **Import dedup**: SHA-256 `source_hash` on Manifest prevents re-importing the same session file
+- **MCP server**: `engram-mcp` crate uses `rmcp` (v0.15) with stdio transport. Server stores `PathBuf` not `GitStorage` because `git2::Repository` is `!Send` and rmcp requires `ServerHandler: Send + Sync + 'static`. Each tool opens the repo fresh per request. Uses `schemars` v1 (matching rmcp's dependency).
+
+### engram-mcp structure
+
+- `src/lib.rs` — `EngramMcpServer` struct with 6 tools: `engram_search`, `engram_show`, `engram_log`, `engram_trace`, `engram_diff`, `engram_dead_ends`. Uses rmcp `#[tool_router]`, `#[tool]`, `#[tool_handler]` macros. `run_stdio()` function starts the server.
 
 ## License
 

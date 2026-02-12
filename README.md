@@ -199,28 +199,72 @@ engram review main..feature-branch
 
 Instead of line-by-line code review, read the chain of intents and summaries. See what was asked, what was done, what dead ends were explored, and what architectural decisions were made. Includes aggregate token usage and cost.
 
+## PR Summary
+
+Auto-generate structured PR descriptions from the engram chain:
+
+```bash
+engram pr-summary main..feature-branch
+engram pr-summary main..feature-branch --format json
+```
+
+Outputs a markdown PR description with summary, file changes, reasoning chain, dead ends, and token economics.
+
+## MCP Server
+
+Expose engram data to AI agents via the [Model Context Protocol](https://modelcontextprotocol.io):
+
+```bash
+engram mcp
+```
+
+Starts an MCP server on stdio with 6 tools:
+
+| Tool | Description |
+|------|-------------|
+| `engram_search` | Full-text search across engrams |
+| `engram_show` | Show full details of an engram |
+| `engram_log` | List recent engrams |
+| `engram_trace` | Reasoning history for a file |
+| `engram_diff` | Compare two engrams |
+| `engram_dead_ends` | Surface rejected approaches |
+
+Configure in Claude Desktop (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
 ## CLI Reference
 
-| Command    | Description |
-|------------|-------------|
-| `init`     | Initialize engram in a Git repository (`--remote`, `--force`) |
-| `record`   | Record an agent session via PTY wrapper (`--agent`, `--model`) |
-| `import`   | Import sessions from Claude Code or Aider (with dedup) |
-| `log`      | List engrams (most recent first) (`--cost`, `--by-agent`) |
-| `show`     | Show details of a specific engram (supports `HEAD`) |
-| `search`   | Full-text search across engrams |
-| `trace`    | Show reasoning history for a file |
-| `diff`     | Compare two engrams |
-| `graph`    | Show the context graph (text or DOT) |
-| `review`   | Review intent chain for a branch range |
-| `stats`    | Show aggregate statistics across all engrams |
-| `blame`    | Show reasoning blame for a file |
-| `gc`       | Garbage collect old engrams (`--older-than`, `--dry-run`) |
-| `push`     | Push engram refs to a remote |
-| `pull`     | Pull engram refs and reindex |
-| `fetch`    | Fetch engram refs from a remote |
-| `reindex`  | Rebuild the search index |
-| `version`  | Print version information |
+| Command       | Description |
+|---------------|-------------|
+| `init`        | Initialize engram in a Git repository (`--remote`, `--force`) |
+| `record`      | Record an agent session via PTY wrapper (`--agent`, `--model`) |
+| `import`      | Import sessions from Claude Code or Aider (with dedup) |
+| `log`         | List engrams (most recent first) (`--cost`, `--by-agent`) |
+| `show`        | Show details of a specific engram (supports `HEAD`) |
+| `search`      | Full-text search across engrams |
+| `trace`       | Show reasoning history for a file |
+| `diff`        | Compare two engrams |
+| `graph`       | Show the context graph (text or DOT) |
+| `review`      | Review intent chain for a branch range |
+| `pr-summary`  | Generate a PR description from the engram chain |
+| `mcp`         | Start MCP server (stdio) for AI agent integration |
+| `stats`       | Show aggregate statistics across all engrams |
+| `blame`       | Show reasoning blame for a file |
+| `gc`          | Garbage collect old engrams (`--older-than`, `--dry-run`) |
+| `push`        | Push engram refs to a remote |
+| `pull`        | Pull engram refs and reindex |
+| `fetch`       | Fetch engram refs from a remote |
+| `reindex`     | Rebuild the search index |
+| `version`     | Print version information |
 
 All commands support `--format json` for machine-readable output and `-v`/`-vv`/`-vvv` for verbosity.
 
@@ -233,6 +277,7 @@ crates/
   engram-query/      Tantivy search index, context graph, branch review
   engram-protocol/   Push/pull/fetch via Git refspecs
   engram-sdk/        Fluent Rust SDK for direct agent integration
+  engram-mcp/        MCP server for AI agent integration (rmcp)
   engram-cli/        CLI binary (installed as `engram`)
 sdks/
   python/            Python SDK (pygit2)

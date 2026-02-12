@@ -45,7 +45,7 @@ pub fn run(args: &ShowArgs, format: OutputFormat) -> Result<()> {
             OutputFormat::Json => {
                 serde_json::to_string_pretty(&data.transcript.entries).unwrap_or_default()
             }
-            OutputFormat::Text => {
+            OutputFormat::Text | OutputFormat::Markdown => {
                 let jsonl = data.transcript.to_jsonl().unwrap_or_default();
                 String::from_utf8_lossy(&jsonl).to_string()
             }

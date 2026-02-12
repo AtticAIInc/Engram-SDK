@@ -28,7 +28,7 @@ pub fn run(args: &TraceArgs, format: OutputFormat) -> Result<()> {
             let manifests: Vec<_> = entries.iter().map(|e| &e.manifest).collect();
             println!("{}", serde_json::to_string_pretty(&manifests)?);
         }
-        OutputFormat::Text => {
+        OutputFormat::Text | OutputFormat::Markdown => {
             eprintln!(
                 "Reasoning trace for: {} ({} engram(s))\n",
                 args.file,

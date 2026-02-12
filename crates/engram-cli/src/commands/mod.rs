@@ -7,6 +7,8 @@ pub mod hook_handler;
 pub mod import;
 pub mod init;
 pub mod log;
+pub mod mcp;
+pub mod pr_summary;
 pub mod pull;
 pub mod push;
 pub mod record;
@@ -50,6 +52,10 @@ pub enum Commands {
     Fetch(fetch::FetchArgs),
     /// Show aggregate statistics across all engrams
     Stats,
+    /// Start MCP server (stdio transport) for AI agent integration
+    Mcp,
+    /// Generate a PR description from the engram chain
+    PrSummary(pr_summary::PrSummaryArgs),
     /// Garbage collect old engrams
     Gc(gc::GcArgs),
     /// Show reasoning blame for a file

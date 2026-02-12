@@ -5,7 +5,9 @@ use super::OutputFormat;
 pub fn format_manifest_list(manifests: &[Manifest], show_cost: bool, fmt: OutputFormat) -> String {
     match fmt {
         OutputFormat::Json => serde_json::to_string_pretty(manifests).unwrap_or_default(),
-        OutputFormat::Text => format_manifest_list_text(manifests, show_cost),
+        OutputFormat::Text | OutputFormat::Markdown => {
+            format_manifest_list_text(manifests, show_cost)
+        }
     }
 }
 
@@ -44,7 +46,7 @@ fn format_manifest_list_text(manifests: &[Manifest], show_cost: bool) -> String 
 pub fn format_engram_full(data: &EngramData, fmt: OutputFormat) -> String {
     match fmt {
         OutputFormat::Json => serde_json::to_string_pretty(&data.manifest).unwrap_or_default(),
-        OutputFormat::Text => format_engram_full_text(data),
+        OutputFormat::Text | OutputFormat::Markdown => format_engram_full_text(data),
     }
 }
 
@@ -135,6 +137,6 @@ fn format_engram_full_text(data: &EngramData) -> String {
 pub fn format_intent(data: &EngramData, fmt: OutputFormat) -> String {
     match fmt {
         OutputFormat::Json => serde_json::to_string_pretty(&data.intent).unwrap_or_default(),
-        OutputFormat::Text => data.intent.to_markdown(),
+        OutputFormat::Text | OutputFormat::Markdown => data.intent.to_markdown(),
     }
 }

@@ -52,6 +52,8 @@ fn main() -> Result<()> {
         commands::Commands::Diff(args) => commands::diff::run(args, cli.format),
         commands::Commands::Graph(args) => commands::graph::run(args, cli.format),
         commands::Commands::Review(args) => commands::review::run(args, cli.format),
+        commands::Commands::Mcp => commands::mcp::run(),
+        commands::Commands::PrSummary(args) => commands::pr_summary::run(args, cli.format),
         commands::Commands::Push(args) => commands::push::run(args),
         commands::Commands::Pull(args) => commands::pull::run(args),
         commands::Commands::Fetch(args) => commands::fetch::run(args),

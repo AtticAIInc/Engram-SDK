@@ -73,10 +73,7 @@ impl ActiveSession {
     /// Add a commit SHA to the session atomically with an exclusive lock.
     pub fn add_commit(&mut self, sha: &str, git_dir: &Path) -> Result<(), CoreError> {
         let path = Self::session_path(git_dir);
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&path)?;
+        let file = fs::OpenOptions::new().read(true).write(true).open(&path)?;
         fs2::FileExt::lock_exclusive(&file).map_err(CoreError::Io)?;
 
         // Re-read under lock to get latest state

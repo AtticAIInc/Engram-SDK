@@ -62,7 +62,7 @@ pub fn run(format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&stats).unwrap());
         }
-        OutputFormat::Text => {
+        OutputFormat::Text | OutputFormat::Markdown => {
             println!("Engram Statistics");
             println!("=================");
             println!("Total engrams:  {total}");

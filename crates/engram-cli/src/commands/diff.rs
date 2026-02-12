@@ -41,7 +41,7 @@ pub fn run(args: &DiffArgs, format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&json)?);
         }
-        OutputFormat::Text => {
+        OutputFormat::Text | OutputFormat::Markdown => {
             let short_a = &diff.id_a.as_str()[..8];
             let short_b = &diff.id_b.as_str()[..8];
             println!("Comparing {short_a} vs {short_b}\n");

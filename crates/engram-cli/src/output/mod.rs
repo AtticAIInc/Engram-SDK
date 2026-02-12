@@ -4,4 +4,5 @@ pub mod format;
 pub enum OutputFormat {
     Text,
     Json,
+    Markdown,
 }

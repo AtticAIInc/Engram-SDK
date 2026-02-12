@@ -6,6 +6,7 @@ members = [
     "crates/engram-query",
     "crates/engram-protocol",
     "crates/engram-sdk",
+    "crates/engram-mcp",
     "crates/engram-cli",
 ]
 
@@ -23,6 +24,7 @@ engram-capture = { path = "crates/engram-capture" }
 engram-query = { path = "crates/engram-query" }
 engram-protocol = { path = "crates/engram-protocol" }
 engram-sdk = { path = "crates/engram-sdk" }
+engram-mcp = { path = "crates/engram-mcp" }
 
 # Git (vendored bundles libgit2 + openssl so no system deps needed)
 git2 = { version = "0.20", features = ["vendored-libgit2", "vendored-openssl"] }
@@ -53,6 +55,11 @@ ignore = "0.4"
 
 # File locking
 fs2 = "0.4"
+
+# MCP
+rmcp = { version = "0.15", features = ["server", "transport-io"] }
+tokio = { version = "1", features = ["full"] }
+schemars = "1"
 
 # Search
 tantivy = "0.22"

@@ -111,7 +111,9 @@ fn try_extract_decision(lower: &str, original: &str) -> Option<Decision> {
 
     // Pattern: "chose X over Y" (short lines only)
     if lower.starts_with("chose ") && original.len() < 120 {
-        if let Some((desc, _)) = lower.strip_prefix("chose ").and_then(|r| r.split_once(" over "))
+        if let Some((desc, _)) = lower
+            .strip_prefix("chose ")
+            .and_then(|r| r.split_once(" over "))
         {
             return Some(Decision {
                 description: desc.trim().to_string(),

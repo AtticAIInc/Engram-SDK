@@ -1,0 +1,20 @@
+[package]
+name = "engram-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "MCP server for Engram - expose reasoning data to AI agents"
+
+[dependencies]
+engram-core = { workspace = true }
+engram-query = { workspace = true }
+rmcp = { workspace = true }
+tokio = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

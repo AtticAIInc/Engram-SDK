@@ -81,7 +81,10 @@ pub fn run(args: &ImportArgs) -> Result<()> {
             let data = ClaudeCodeImporter::import_session(path)
                 .context("Failed to parse Claude Code session")?;
             if let Some(existing) = check_duplicate(&storage, &data) {
-                println!("  Skipped (already imported as {})", &existing.as_str()[..8]);
+                println!(
+                    "  Skipped (already imported as {})",
+                    &existing.as_str()[..8]
+                );
                 return Ok(());
             }
             let tokens = data.manifest.token_usage.total_tokens;
@@ -105,7 +108,10 @@ pub fn run(args: &ImportArgs) -> Result<()> {
                 AiderImporter::import_history(path).context("Failed to parse Aider history")?;
             for data in engrams {
                 if let Some(existing) = check_duplicate(&storage, &data) {
-                    println!("  Skipped (already imported as {})", &existing.as_str()[..8]);
+                    println!(
+                        "  Skipped (already imported as {})",
+                        &existing.as_str()[..8]
+                    );
                     continue;
                 }
                 let entries = data.transcript.entries.len();

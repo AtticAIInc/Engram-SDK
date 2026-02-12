@@ -32,7 +32,7 @@ pub fn run(args: &SearchArgs, format: OutputFormat) -> Result<()> {
             let manifests: Vec<_> = results.iter().map(|r| &r.manifest).collect();
             println!("{}", serde_json::to_string_pretty(&manifests)?);
         }
-        OutputFormat::Text => {
+        OutputFormat::Text | OutputFormat::Markdown => {
             eprintln!("Found {} result(s) for: {}\n", results.len(), args.query);
             for result in &results {
                 let m = &result.manifest;

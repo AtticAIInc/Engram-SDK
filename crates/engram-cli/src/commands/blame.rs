@@ -64,7 +64,7 @@ pub fn run(args: &BlameArgs, format: OutputFormat) -> Result<()> {
                 .collect();
             println!("{}", serde_json::to_string_pretty(&entries).unwrap());
         }
-        OutputFormat::Text => {
+        OutputFormat::Text | OutputFormat::Markdown => {
             println!("Reasoning blame for: {}", args.file);
             println!("{}", "=".repeat(40 + args.file.len()));
             println!();
