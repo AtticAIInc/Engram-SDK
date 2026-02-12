@@ -1,0 +1,21 @@
+[package]
+name = "engram-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Rust SDK for Engram - fluent API for capturing agent reasoning in Git"
+
+[dependencies]
+engram-core = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+git2 = { workspace = true }
+
+[lints]
+workspace = true

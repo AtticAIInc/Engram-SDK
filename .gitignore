@@ -1,0 +1,19 @@
+# Rust
+/target
+Cargo.lock
+
+# Node
+node_modules/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Editor
+*.swp
+*.swo
+*~
+.DS_Store

@@ -1,0 +1,19 @@
+[package]
+name = "engram-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Protocol & sync for Engram - push/pull/fetch engram refs between repos"
+
+[dependencies]
+engram-core = { workspace = true }
+git2 = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
