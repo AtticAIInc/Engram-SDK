@@ -121,3 +121,121 @@ impl ContextGraph {
         dot
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_test_graph() -> ContextGraph {
+        ContextGraph {
+            nodes: vec![
+                GraphNode {
+                    id: "engram:abc123".into(),
+                    node_type: NodeType::Engram,
+                    label: "Add auth".into(),
+                },
+                GraphNode {
+                    id: "file:src/auth.rs".into(),
+                    node_type: NodeType::File,
+                    label: "src/auth.rs".into(),
+                },
+                GraphNode {
+                    id: "agent:claude-code".into(),
+                    node_type: NodeType::Agent,
+                    label: "claude-code".into(),
+                },
+                GraphNode {
+                    id: "commit:def456".into(),
+                    node_type: NodeType::Commit,
+                    label: "def456".into(),
+                },
+                GraphNode {
+                    id: "file:src/main.rs".into(),
+                    node_type: NodeType::File,
+                    label: "src/main.rs".into(),
+                },
+            ],
+            edges: vec![
+                GraphEdge {
+                    from: "engram:abc123".into(),
+                    to: "file:src/auth.rs".into(),
+                    edge_type: EdgeType::TouchedFile,
+                },
+                GraphEdge {
+                    from: "engram:abc123".into(),
+                    to: "agent:claude-code".into(),
+                    edge_type: EdgeType::UsedAgent,
+                },
+                GraphEdge {
+                    from: "engram:abc123".into(),
+                    to: "commit:def456".into(),
+                    edge_type: EdgeType::ProducedBy,
+                },
+                GraphEdge {
+                    from: "file:src/auth.rs".into(),
+                    to: "engram:abc123".into(),
+                    edge_type: EdgeType::ModifiedBy,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn test_subgraph_depth_0() {
+        let graph = make_test_graph();
+        let sub = graph.subgraph("engram:abc123", 0);
+        assert_eq!(sub.nodes.len(), 1);
+        assert!(sub.edges.is_empty());
+    }
+
+    #[test]
+    fn test_subgraph_depth_1() {
+        let graph = make_test_graph();
+        let sub = graph.subgraph("engram:abc123", 1);
+        // Should include the engram + its direct neighbors
+        assert!(sub.nodes.len() >= 4); // engram, file:auth, agent, commit
+        assert!(!sub.edges.is_empty());
+    }
+
+    #[test]
+    fn test_subgraph_nonexistent_center() {
+        let graph = make_test_graph();
+        let sub = graph.subgraph("nonexistent", 2);
+        // Should contain only the "nonexistent" node, which doesn't actually exist in nodes
+        assert!(sub.nodes.is_empty());
+    }
+
+    #[test]
+    fn test_to_dot_contains_structure() {
+        let graph = make_test_graph();
+        let dot = graph.to_dot();
+
+        assert!(dot.starts_with("digraph engram {"));
+        assert!(dot.ends_with("}\n"));
+        assert!(dot.contains("engram:abc123"));
+        assert!(dot.contains("shape=box")); // Engram node
+        assert!(dot.contains("shape=note")); // File node
+        assert!(dot.contains("shape=diamond")); // Agent node
+        assert!(dot.contains("shape=ellipse")); // Commit node
+        assert!(dot.contains("touched_file"));
+        assert!(dot.contains("used_agent"));
+        assert!(dot.contains("produced_by"));
+        assert!(dot.contains("modified_by"));
+    }
+
+    #[test]
+    fn test_empty_graph_to_dot() {
+        let graph = ContextGraph::default();
+        let dot = graph.to_dot();
+        assert!(dot.starts_with("digraph engram {"));
+        assert!(dot.ends_with("}\n"));
+    }
+
+    #[test]
+    fn test_subgraph_bidirectional_edges() {
+        let graph = make_test_graph();
+        // From file:src/auth.rs at depth 1, should reach engram:abc123
+        let sub = graph.subgraph("file:src/auth.rs", 1);
+        assert!(sub.nodes.iter().any(|n| n.id == "engram:abc123"));
+    }
+}

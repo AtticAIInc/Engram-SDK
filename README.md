@@ -327,7 +327,7 @@ git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo build --workspace
 
-# Run tests (54 Rust + 10 Python + 7 TypeScript = 71 total)
+# Run tests (118 Rust + 10 Python + 7 TypeScript = 135 total)
 cargo test --workspace
 cd sdks/python && python3 -m pytest tests/
 cd sdks/typescript && npx vitest run

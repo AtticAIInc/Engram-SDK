@@ -101,3 +101,139 @@ pub fn build_graph(storage: &GitStorage) -> Result<ContextGraph, QueryError> {
 
     Ok(graph)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engram_core::model::*;
+    use tempfile::TempDir;
+
+    fn make_test_data(files: &[&str], agent: &str, commits: &[&str]) -> EngramData {
+        EngramData {
+            manifest: Manifest {
+                id: EngramId::new(),
+                version: 1,
+                created_at: chrono::Utc::now(),
+                finished_at: None,
+                agent: AgentInfo {
+                    name: agent.into(),
+                    model: None,
+                    version: None,
+                },
+                git_commits: commits.iter().map(|s| s.to_string()).collect(),
+                token_usage: TokenUsage::default(),
+                summary: Some("Test engram".into()),
+                tags: vec![],
+                capture_mode: CaptureMode::Sdk,
+                source_hash: None,
+            },
+            intent: Intent {
+                original_request: "test".into(),
+                interpreted_goal: None,
+                summary: None,
+                dead_ends: vec![],
+                decisions: vec![],
+            },
+            transcript: Transcript::default(),
+            operations: Operations {
+                tool_calls: vec![],
+                file_changes: files
+                    .iter()
+                    .map(|f| FileChange {
+                        path: f.to_string(),
+                        change_type: FileChangeType::Modified,
+                        lines_added: None,
+                        lines_removed: None,
+                    })
+                    .collect(),
+                shell_commands: vec![],
+            },
+            lineage: Lineage {
+                git_commits: commits.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn test_build_graph_empty() {
+        let tmp = TempDir::new().unwrap();
+        git2::Repository::init(tmp.path()).unwrap();
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let graph = build_graph(&storage).unwrap();
+        assert!(graph.nodes.is_empty());
+        assert!(graph.edges.is_empty());
+    }
+
+    #[test]
+    fn test_build_graph_single_engram() {
+        let tmp = TempDir::new().unwrap();
+        git2::Repository::init(tmp.path()).unwrap();
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let data = make_test_data(&["src/main.rs"], "claude-code", &["abc12345"]);
+        storage.create(&data).unwrap();
+
+        let graph = build_graph(&storage).unwrap();
+
+        // Should have: 1 engram + 1 file + 1 agent + 1 commit = 4 nodes
+        assert_eq!(graph.nodes.len(), 4);
+        assert!(graph.nodes.iter().any(|n| n.node_type == NodeType::Engram));
+        assert!(graph.nodes.iter().any(|n| n.node_type == NodeType::File));
+        assert!(graph.nodes.iter().any(|n| n.node_type == NodeType::Agent));
+        assert!(graph.nodes.iter().any(|n| n.node_type == NodeType::Commit));
+
+        // Should have edges: touched_file, modified_by, used_agent, produced_by
+        assert!(graph
+            .edges
+            .iter()
+            .any(|e| e.edge_type == EdgeType::TouchedFile));
+        assert!(graph
+            .edges
+            .iter()
+            .any(|e| e.edge_type == EdgeType::ModifiedBy));
+        assert!(graph
+            .edges
+            .iter()
+            .any(|e| e.edge_type == EdgeType::UsedAgent));
+        assert!(graph
+            .edges
+            .iter()
+            .any(|e| e.edge_type == EdgeType::ProducedBy));
+    }
+
+    #[test]
+    fn test_build_graph_shared_files_deduplicated() {
+        let tmp = TempDir::new().unwrap();
+        git2::Repository::init(tmp.path()).unwrap();
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        // Two engrams touching the same file
+        let data1 = make_test_data(&["src/shared.rs"], "claude-code", &[]);
+        let data2 = make_test_data(&["src/shared.rs"], "claude-code", &[]);
+        storage.create(&data1).unwrap();
+        storage.create(&data2).unwrap();
+
+        let graph = build_graph(&storage).unwrap();
+
+        // File node should be deduplicated
+        let file_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::File)
+            .collect();
+        assert_eq!(file_nodes.len(), 1);
+
+        // Agent node should be deduplicated
+        let agent_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Agent)
+            .collect();
+        assert_eq!(agent_nodes.len(), 1);
+    }
+}

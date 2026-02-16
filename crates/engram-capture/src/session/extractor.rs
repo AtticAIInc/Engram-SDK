@@ -180,4 +180,82 @@ mod tests {
         assert!(insights.dead_ends.is_empty());
         assert!(insights.decisions.is_empty());
     }
+
+    #[test]
+    fn test_extract_dead_end_rejected_with_colon() {
+        let output = b"rejected SQLite: not suitable for concurrent writes\n";
+        let insights = extract_insights(output);
+        assert_eq!(insights.dead_ends.len(), 1);
+        assert_eq!(insights.dead_ends[0].approach, "sqlite");
+        assert!(insights.dead_ends[0].reason.contains("concurrent writes"));
+    }
+
+    #[test]
+    fn test_extract_dead_end_didnt_work() {
+        let output = b"Using raw SQL didn't work because of injection risks\n";
+        let insights = extract_insights(output);
+        assert_eq!(insights.dead_ends.len(), 1);
+        assert_eq!(insights.dead_ends[0].approach, "Using raw SQL");
+        assert!(insights.dead_ends[0].reason.contains("injection risks"));
+    }
+
+    #[test]
+    fn test_extract_dead_end_instead_of() {
+        let output = b"Used connection pooling instead of raw connections\n";
+        let insights = extract_insights(output);
+        assert_eq!(insights.dead_ends.len(), 1);
+        assert_eq!(insights.dead_ends[0].approach, "raw connections");
+    }
+
+    #[test]
+    fn test_extract_decision_chose_over() {
+        let output = b"chose tokio over async-std for better ecosystem support\n";
+        let insights = extract_insights(output);
+        assert_eq!(insights.decisions.len(), 1);
+        assert_eq!(insights.decisions[0].description, "tokio");
+    }
+
+    #[test]
+    fn test_skips_markdown_lines() {
+        let output = b"# tried something but it failed\n\
+            | tried table but row issue |\n\
+            ```tried code but block issue```\n\
+            - **tried bold but format issue**\n\
+            **tried bold line but issue**\n\
+            Check [this link](https://example.com) tried link but issue\n";
+        let insights = extract_insights(output);
+        assert!(insights.dead_ends.is_empty());
+    }
+
+    #[test]
+    fn test_skips_short_lines() {
+        let output = b"short\nab\n\n";
+        let insights = extract_insights(output);
+        assert!(insights.dead_ends.is_empty());
+        assert!(insights.decisions.is_empty());
+    }
+
+    #[test]
+    fn test_didnt_work_skips_long_lines() {
+        // Lines > 120 chars with "didn't work" should be skipped
+        let long_line = format!("{} didn't work because reasons", "A".repeat(120));
+        let insights = extract_insights(long_line.as_bytes());
+        assert!(insights.dead_ends.is_empty());
+    }
+
+    #[test]
+    fn test_deduplication() {
+        let output = b"tried X but Y\ntried X but Z\n";
+        let insights = extract_insights(output);
+        // Should deduplicate by approach (dedup_by is only on adjacent items)
+        assert_eq!(insights.dead_ends.len(), 1);
+    }
+
+    #[test]
+    fn test_multiple_insights() {
+        let output = b"tried plan A but too complex\nrejected plan B because too slow\ndecided to use plan C because simple and fast\n";
+        let insights = extract_insights(output);
+        assert_eq!(insights.dead_ends.len(), 2);
+        assert_eq!(insights.decisions.len(), 1);
+    }
 }

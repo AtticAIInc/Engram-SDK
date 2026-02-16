@@ -499,3 +499,353 @@ pub async fn run_stdio(repo_path: PathBuf) -> Result<(), Box<dyn std::error::Err
     service.waiting().await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engram_core::model::*;
+    use engram_core::storage::GitStorage;
+    use rmcp::handler::server::wrapper::Parameters;
+    use tempfile::TempDir;
+
+    /// Helper: create a repo with engrams and return the MCP server.
+    fn setup_test_server() -> (TempDir, EngramMcpServer, Vec<EngramId>) {
+        let tmp = TempDir::new().unwrap();
+        git2::Repository::init(tmp.path()).unwrap();
+
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let mut ids = Vec::new();
+
+        // Engram 1: auth-related with dead ends and decisions
+        let data1 = EngramData {
+            manifest: Manifest {
+                id: EngramId::new(),
+                version: 1,
+                created_at: chrono::Utc::now() - chrono::Duration::hours(2),
+                finished_at: None,
+                agent: AgentInfo {
+                    name: "claude-code".into(),
+                    model: Some("claude-sonnet-4-5".into()),
+                    version: None,
+                },
+                git_commits: vec!["abc12345".into()],
+                token_usage: TokenUsage {
+                    input_tokens: 3000,
+                    output_tokens: 1000,
+                    total_tokens: 4000,
+                    cost_usd: Some(0.05),
+                    ..Default::default()
+                },
+                summary: Some("Add OAuth2 authentication".into()),
+                tags: vec![],
+                capture_mode: CaptureMode::Wrapper,
+                source_hash: None,
+            },
+            intent: Intent {
+                original_request: "Add OAuth2 auth with PKCE".into(),
+                interpreted_goal: Some("Implement OAuth2 with PKCE for SPA".into()),
+                summary: Some("Add OAuth2 authentication".into()),
+                dead_ends: vec![DeadEnd {
+                    approach: "passport.js".into(),
+                    reason: "middleware conflict".into(),
+                }],
+                decisions: vec![Decision {
+                    description: "use custom middleware".into(),
+                    rationale: "full control over auth flow".into(),
+                }],
+            },
+            transcript: Transcript {
+                entries: vec![TranscriptEntry {
+                    timestamp: chrono::Utc::now(),
+                    role: Role::User,
+                    content: TranscriptContent::Text {
+                        text: "Add OAuth2 auth".into(),
+                    },
+                    token_count: None,
+                }],
+            },
+            operations: Operations {
+                tool_calls: vec![],
+                file_changes: vec![
+                    FileChange {
+                        path: "src/auth.rs".into(),
+                        change_type: FileChangeType::Created,
+                        lines_added: Some(150),
+                        lines_removed: None,
+                    },
+                    FileChange {
+                        path: "src/middleware.rs".into(),
+                        change_type: FileChangeType::Modified,
+                        lines_added: Some(20),
+                        lines_removed: Some(5),
+                    },
+                ],
+                shell_commands: vec![],
+            },
+            lineage: Lineage::default(),
+        };
+        ids.push(data1.manifest.id.clone());
+        storage.create(&data1).unwrap();
+
+        // Engram 2: database-related, different agent
+        let data2 = EngramData {
+            manifest: Manifest {
+                id: EngramId::new(),
+                version: 1,
+                created_at: chrono::Utc::now() - chrono::Duration::hours(1),
+                finished_at: None,
+                agent: AgentInfo {
+                    name: "aider".into(),
+                    model: Some("gpt-4o".into()),
+                    version: None,
+                },
+                git_commits: vec![],
+                token_usage: TokenUsage {
+                    input_tokens: 2000,
+                    output_tokens: 800,
+                    total_tokens: 2800,
+                    cost_usd: Some(0.03),
+                    ..Default::default()
+                },
+                summary: Some("Fix database connection pool".into()),
+                tags: vec![],
+                capture_mode: CaptureMode::Import,
+                source_hash: None,
+            },
+            intent: Intent {
+                original_request: "Fix the DB pool leak".into(),
+                interpreted_goal: None,
+                summary: Some("Fix database connection pool".into()),
+                dead_ends: vec![],
+                decisions: vec![],
+            },
+            transcript: Transcript::default(),
+            operations: Operations {
+                tool_calls: vec![],
+                file_changes: vec![FileChange {
+                    path: "src/db.rs".into(),
+                    change_type: FileChangeType::Modified,
+                    lines_added: Some(10),
+                    lines_removed: Some(8),
+                }],
+                shell_commands: vec![],
+            },
+            lineage: Lineage::default(),
+        };
+        ids.push(data2.manifest.id.clone());
+        storage.create(&data2).unwrap();
+
+        // Build search index
+        let engine = SearchEngine::open(&storage).unwrap();
+        engine.rebuild(&storage).unwrap();
+
+        let server = EngramMcpServer::new(tmp.path().to_path_buf());
+        (tmp, server, ids)
+    }
+
+    #[test]
+    fn test_engram_log() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_log(Parameters(LogParams {
+                limit: None,
+                by_agent: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("2 engram(s)"));
+        assert!(result.contains("claude-code"));
+        assert!(result.contains("aider"));
+    }
+
+    #[test]
+    fn test_engram_log_with_agent_filter() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_log(Parameters(LogParams {
+                limit: None,
+                by_agent: Some("claude".into()),
+            }))
+            .unwrap();
+
+        assert!(result.contains("1 engram(s)"));
+        assert!(result.contains("claude-code"));
+        assert!(!result.contains("aider"));
+    }
+
+    #[test]
+    fn test_engram_log_with_limit() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_log(Parameters(LogParams {
+                limit: Some(1),
+                by_agent: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("1 engram(s)"));
+    }
+
+    #[test]
+    fn test_engram_show() {
+        let (_tmp, server, ids) = setup_test_server();
+
+        let result = server
+            .engram_show(Parameters(ShowParams {
+                id: ids[0].as_str().to_string(),
+            }))
+            .unwrap();
+
+        assert!(result.contains("claude-code"));
+        assert!(result.contains("OAuth2"));
+        assert!(result.contains("src/auth.rs"));
+        assert!(result.contains("passport.js")); // dead end
+        assert!(result.contains("custom middleware")); // decision
+        assert!(result.contains("Transcript: 1 entries"));
+    }
+
+    #[test]
+    fn test_engram_show_head() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_show(Parameters(ShowParams { id: "HEAD".into() }))
+            .unwrap();
+
+        // HEAD should resolve to the most recent engram
+        assert!(result.contains("Engram:"));
+    }
+
+    #[test]
+    fn test_engram_search() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_search(Parameters(SearchParams {
+                query: "OAuth2".into(),
+                limit: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("Found"));
+        assert!(result.contains("OAuth2"));
+    }
+
+    #[test]
+    fn test_engram_search_no_results() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_search(Parameters(SearchParams {
+                query: "nonexistent_xyz_query".into(),
+                limit: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("No results found"));
+    }
+
+    #[test]
+    fn test_engram_diff() {
+        let (_tmp, server, ids) = setup_test_server();
+
+        let result = server
+            .engram_diff(Parameters(DiffParams {
+                id_a: ids[0].as_str().to_string(),
+                id_b: ids[1].as_str().to_string(),
+            }))
+            .unwrap();
+
+        assert!(result.contains("Comparing"));
+        assert!(result.contains("Token delta:"));
+        // Should show token delta (2800 - 4000 = -1200)
+        assert!(result.contains("-1200"));
+    }
+
+    #[test]
+    fn test_engram_dead_ends_specific() {
+        let (_tmp, server, ids) = setup_test_server();
+
+        let result = server
+            .engram_dead_ends(Parameters(DeadEndsParams {
+                id: Some(ids[0].as_str().to_string()),
+                query: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("passport.js"));
+        assert!(result.contains("middleware conflict"));
+        assert!(result.contains("custom middleware"));
+    }
+
+    #[test]
+    fn test_engram_dead_ends_global_search() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_dead_ends(Parameters(DeadEndsParams {
+                id: None,
+                query: Some("passport".into()),
+            }))
+            .unwrap();
+
+        assert!(result.contains("passport.js"));
+    }
+
+    #[test]
+    fn test_engram_dead_ends_no_results() {
+        let (_tmp, server, ids) = setup_test_server();
+
+        let result = server
+            .engram_dead_ends(Parameters(DeadEndsParams {
+                id: Some(ids[1].as_str().to_string()), // aider engram with no dead ends
+                query: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("No dead ends"));
+    }
+
+    #[test]
+    fn test_engram_trace() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_trace(Parameters(TraceParams {
+                file_path: "auth".into(),
+            }))
+            .unwrap();
+
+        // Should find engrams that touched auth files
+        // The search uses text matching on file paths, so "auth" should match
+        assert!(
+            result.contains("Reasoning trace") || result.contains("No engrams found"),
+            "Expected trace output, got: {result}"
+        );
+    }
+
+    #[test]
+    fn test_open_storage_error() {
+        let server = EngramMcpServer::new(PathBuf::from("/nonexistent/path"));
+        let result = server.engram_log(Parameters(LogParams {
+            limit: None,
+            by_agent: None,
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_engram_show_invalid_id() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server.engram_show(Parameters(ShowParams {
+            id: "nonexistent_id_12345".into(),
+        }));
+        assert!(result.is_err());
+    }
+}

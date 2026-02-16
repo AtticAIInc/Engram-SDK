@@ -7,9 +7,7 @@ pub fn run() -> Result<()> {
 
     // Auto-initialize if needed so the MCP server "just works"
     if !storage.is_initialized() {
-        storage
-            .init()
-            .context("Failed to auto-initialize engram")?;
+        storage.init().context("Failed to auto-initialize engram")?;
     }
 
     let repo_path = storage

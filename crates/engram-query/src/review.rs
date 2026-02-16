@@ -114,3 +114,164 @@ pub fn review_branch(
         files_changed: all_files.into_iter().collect(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engram_core::model::*;
+    use engram_core::storage::GitStorage;
+    use git2::{Repository, Signature};
+    use tempfile::TempDir;
+
+    fn make_test_data(request: &str, files: &[&str], tokens: u64, cost: Option<f64>) -> EngramData {
+        EngramData {
+            manifest: Manifest {
+                id: EngramId::new(),
+                version: 1,
+                created_at: chrono::Utc::now(),
+                finished_at: None,
+                agent: AgentInfo {
+                    name: "test-agent".into(),
+                    model: None,
+                    version: None,
+                },
+                git_commits: vec![],
+                token_usage: TokenUsage {
+                    total_tokens: tokens,
+                    cost_usd: cost,
+                    ..Default::default()
+                },
+                summary: Some(request.into()),
+                tags: vec![],
+                capture_mode: CaptureMode::Sdk,
+                source_hash: None,
+            },
+            intent: Intent {
+                original_request: request.into(),
+                interpreted_goal: None,
+                summary: None,
+                dead_ends: vec![],
+                decisions: vec![],
+            },
+            transcript: Transcript::default(),
+            operations: Operations {
+                tool_calls: vec![],
+                file_changes: files
+                    .iter()
+                    .map(|f| FileChange {
+                        path: f.to_string(),
+                        change_type: FileChangeType::Modified,
+                        lines_added: None,
+                        lines_removed: None,
+                    })
+                    .collect(),
+                shell_commands: vec![],
+            },
+            lineage: Lineage::default(),
+        }
+    }
+
+    /// Create a commit in the repo with an optional Engram-Id trailer.
+    fn make_commit(repo: &Repository, message: &str, parent: Option<git2::Oid>) -> git2::Oid {
+        let sig = Signature::now("Test", "test@example.com").unwrap();
+        let tree_id = {
+            let mut index = repo.index().unwrap();
+            index.write_tree().unwrap()
+        };
+        let tree = repo.find_tree(tree_id).unwrap();
+
+        if let Some(parent_oid) = parent {
+            let parent_commit = repo.find_commit(parent_oid).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])
+                .unwrap()
+        } else {
+            repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[])
+                .unwrap()
+        }
+    }
+
+    #[test]
+    fn test_review_branch_empty() {
+        let tmp = TempDir::new().unwrap();
+        let repo = Repository::init(tmp.path()).unwrap();
+        {
+            let mut config = repo.config().unwrap();
+            config.set_str("user.name", "Test").unwrap();
+            config.set_str("user.email", "test@example.com").unwrap();
+        }
+
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        // Create base and head commit with no trailer
+        let base = make_commit(&repo, "base commit", None);
+        let head = make_commit(&repo, "head commit", Some(base));
+
+        let review = review_branch(&storage, &base.to_string(), &head.to_string()).unwrap();
+
+        assert_eq!(review.total_commits, 1);
+        assert!(review.engrams.is_empty());
+        assert_eq!(review.total_tokens, 0);
+    }
+
+    #[test]
+    fn test_review_branch_with_engram() {
+        let tmp = TempDir::new().unwrap();
+        let repo = Repository::init(tmp.path()).unwrap();
+        {
+            let mut config = repo.config().unwrap();
+            config.set_str("user.name", "Test").unwrap();
+            config.set_str("user.email", "test@example.com").unwrap();
+        }
+
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        // Create an engram
+        let data = make_test_data("Add auth", &["src/auth.rs"], 5000, Some(0.10));
+        let id = storage.create(&data).unwrap();
+
+        // Create commits: base, then one with an Engram-Id trailer
+        let base = make_commit(&repo, "base commit", None);
+        let msg = format!("Add authentication\n\nEngram-Id: {}", id.as_str());
+        let head = make_commit(&repo, &msg, Some(base));
+
+        let review = review_branch(&storage, &base.to_string(), &head.to_string()).unwrap();
+
+        assert_eq!(review.total_commits, 1);
+        assert_eq!(review.engrams.len(), 1);
+        assert_eq!(review.total_tokens, 5000);
+        let cost = review.total_cost.unwrap();
+        assert!((cost - 0.10).abs() < 1e-10);
+        assert!(review.files_changed.contains(&"src/auth.rs".to_string()));
+    }
+
+    #[test]
+    fn test_review_deduplicates_engram_ids() {
+        let tmp = TempDir::new().unwrap();
+        let repo = Repository::init(tmp.path()).unwrap();
+        {
+            let mut config = repo.config().unwrap();
+            config.set_str("user.name", "Test").unwrap();
+            config.set_str("user.email", "test@example.com").unwrap();
+        }
+
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let data = make_test_data("Add auth", &["src/auth.rs"], 1000, None);
+        let id = storage.create(&data).unwrap();
+
+        let base = make_commit(&repo, "base commit", None);
+        let msg1 = format!("commit 1\n\nEngram-Id: {}", id.as_str());
+        let mid = make_commit(&repo, &msg1, Some(base));
+        let msg2 = format!("commit 2\n\nEngram-Id: {}", id.as_str());
+        let head = make_commit(&repo, &msg2, Some(mid));
+
+        let review = review_branch(&storage, &base.to_string(), &head.to_string()).unwrap();
+
+        // Same engram ID should only appear once
+        assert_eq!(review.engrams.len(), 1);
+        assert_eq!(review.total_commits, 2);
+    }
+}

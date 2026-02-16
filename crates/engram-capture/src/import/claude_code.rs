@@ -369,8 +369,7 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
     };
 
     // Extract dead ends and decisions from reasoning text
-    let insights =
-        crate::session::extractor::extract_insights(reasoning_text.as_bytes());
+    let insights = crate::session::extractor::extract_insights(reasoning_text.as_bytes());
 
     // Derive interpreted_goal from the first assistant response (truncated)
     let interpreted_goal = first_assistant_text.map(|t| {
@@ -482,5 +481,130 @@ mod tests {
         let data = parse_claude_code_session("").unwrap();
         assert_eq!(data.manifest.agent.name, "claude-code");
         assert!(data.transcript.entries.is_empty());
+    }
+
+    #[test]
+    fn test_parse_session_extracts_dead_ends() {
+        // Session where the assistant mentions a dead end
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Add authentication"},"version":"2.1.39"}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":"tried passport.js but middleware conflict with existing stack","model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":50}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        assert!(!data.intent.dead_ends.is_empty());
+        assert_eq!(data.intent.dead_ends[0].approach, "passport.js");
+        assert!(data.intent.dead_ends[0]
+            .reason
+            .contains("middleware conflict"));
+    }
+
+    #[test]
+    fn test_parse_session_extracts_decisions() {
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Add auth"},"version":"2.1.39"}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":"decided to use custom middleware because full control over auth flow","model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":50}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        assert!(!data.intent.decisions.is_empty());
+        assert_eq!(
+            data.intent.decisions[0].description,
+            "use custom middleware"
+        );
+    }
+
+    #[test]
+    fn test_parse_session_extracts_interpreted_goal() {
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Add auth"},"version":"2.1.39"}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":"I'll implement OAuth2 authentication with PKCE for the SPA.","model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":50}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        assert_eq!(
+            data.intent.interpreted_goal,
+            Some("I'll implement OAuth2 authentication with PKCE for the SPA.".into())
+        );
+    }
+
+    #[test]
+    fn test_parse_session_truncates_long_interpreted_goal() {
+        let long_text = "A".repeat(300);
+        let jsonl = format!(
+            r#"{{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{{"role":"user","content":"Do something"}},"version":"2.1.39"}}
+{{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{{"role":"assistant","content":"{}","model":"claude-sonnet-4-5","usage":{{"input_tokens":100,"output_tokens":50}}}}}}"#,
+            long_text
+        );
+
+        let data = parse_claude_code_session(&jsonl).unwrap();
+        let goal = data.intent.interpreted_goal.unwrap();
+        assert!(goal.len() <= 203); // 200 chars + "..."
+        assert!(goal.ends_with("..."));
+    }
+
+    #[test]
+    fn test_parse_session_thinking_blocks_feed_insights() {
+        // Thinking blocks should also feed into insight extraction
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Fix the bug"},"version":"2.1.39"}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"tried using regex but performance was terrible for large inputs"},{"type":"text","text":"Let me fix this bug."}],"model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":50}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        assert!(!data.intent.dead_ends.is_empty());
+        assert_eq!(data.intent.dead_ends[0].approach, "using regex");
+    }
+
+    #[test]
+    fn test_parse_session_skips_sidechain() {
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Add auth"},"version":"2.1.39"}
+{"type":"assistant","uuid":"a2","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","isSidechain":true,"message":{"role":"assistant","content":"This is sidechain","model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":50}}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":"Main response","model":"claude-sonnet-4-5","usage":{"input_tokens":200,"output_tokens":100}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        // Sidechain tokens should be excluded
+        assert_eq!(data.manifest.token_usage.input_tokens, 200);
+        assert_eq!(data.manifest.token_usage.output_tokens, 100);
+    }
+
+    #[test]
+    fn test_parse_session_multiple_file_operations() {
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Add files"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"src/new.rs","content":"// new file"}},{"type":"tool_use","id":"t2","name":"Edit","input":{"file_path":"src/main.rs","old_string":"old","new_string":"new"}},{"type":"tool_use","id":"t3","name":"Write","input":{"file_path":"src/new.rs","content":"// updated"}}],"model":"claude-sonnet-4-5","usage":{"input_tokens":500,"output_tokens":200}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        // src/new.rs should appear only once (deduped)
+        assert_eq!(data.operations.file_changes.len(), 2);
+        assert!(data
+            .operations
+            .file_changes
+            .iter()
+            .any(|fc| fc.path == "src/new.rs"));
+        assert!(data
+            .operations
+            .file_changes
+            .iter()
+            .any(|fc| fc.path == "src/main.rs"));
+        // Write -> Created, Edit -> Modified
+        let new_rs = data
+            .operations
+            .file_changes
+            .iter()
+            .find(|fc| fc.path == "src/new.rs")
+            .unwrap();
+        assert!(matches!(new_rs.change_type, FileChangeType::Created));
+        let main_rs = data
+            .operations
+            .file_changes
+            .iter()
+            .find(|fc| fc.path == "src/main.rs")
+            .unwrap();
+        assert!(matches!(main_rs.change_type, FileChangeType::Modified));
+    }
+
+    #[test]
+    fn test_parse_session_source_hash() {
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"test"}}"#;
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), jsonl).unwrap();
+
+        let data = ClaudeCodeImporter::import_session(tmp.path()).unwrap();
+        assert!(data.manifest.source_hash.is_some());
+        // Hash should be consistent
+        let data2 = ClaudeCodeImporter::import_session(tmp.path()).unwrap();
+        assert_eq!(data.manifest.source_hash, data2.manifest.source_hash);
     }
 }

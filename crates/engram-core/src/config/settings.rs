@@ -50,3 +50,101 @@ impl EngramConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn make_repo_config() -> (TempDir, Config) {
+        let tmp = TempDir::new().unwrap();
+        git2::Repository::init(tmp.path()).unwrap();
+        let repo = git2::Repository::open(tmp.path()).unwrap();
+        let config = repo.config().unwrap();
+        (tmp, config)
+    }
+
+    #[test]
+    fn test_load_defaults_when_empty() {
+        let (_tmp, config) = make_repo_config();
+        let engram_config = EngramConfig::load(&config).unwrap();
+        assert!(!engram_config.enabled);
+        assert!(!engram_config.auto_capture);
+        assert!(!engram_config.push_on_push);
+        assert!(engram_config.default_agent.is_none());
+    }
+
+    #[test]
+    fn test_save_and_load_roundtrip() {
+        let (_tmp, mut config) = make_repo_config();
+        let original = EngramConfig {
+            enabled: true,
+            auto_capture: true,
+            default_agent: Some("claude-code".into()),
+            push_on_push: true,
+        };
+        original.save(&mut config).unwrap();
+
+        let loaded = EngramConfig::load(&config).unwrap();
+        assert!(loaded.enabled);
+        assert!(loaded.auto_capture);
+        assert!(loaded.push_on_push);
+        assert_eq!(loaded.default_agent, Some("claude-code".into()));
+    }
+
+    #[test]
+    fn test_save_without_agent() {
+        let (_tmp, mut config) = make_repo_config();
+        let original = EngramConfig {
+            enabled: true,
+            auto_capture: false,
+            default_agent: None,
+            push_on_push: false,
+        };
+        original.save(&mut config).unwrap();
+
+        let loaded = EngramConfig::load(&config).unwrap();
+        assert!(loaded.enabled);
+        assert!(!loaded.auto_capture);
+        assert!(!loaded.push_on_push);
+        // default_agent stays None when not set
+        assert!(loaded.default_agent.is_none());
+    }
+
+    #[test]
+    fn test_default_init() {
+        let config = EngramConfig::default_init();
+        assert!(config.enabled);
+        assert!(!config.auto_capture);
+        assert!(!config.push_on_push);
+        assert!(config.default_agent.is_none());
+    }
+
+    #[test]
+    fn test_overwrite_config() {
+        let (_tmp, mut config) = make_repo_config();
+
+        // Save initial config
+        let first = EngramConfig {
+            enabled: true,
+            auto_capture: false,
+            default_agent: None,
+            push_on_push: false,
+        };
+        first.save(&mut config).unwrap();
+
+        // Overwrite with new config
+        let second = EngramConfig {
+            enabled: true,
+            auto_capture: true,
+            default_agent: Some("aider".into()),
+            push_on_push: true,
+        };
+        second.save(&mut config).unwrap();
+
+        let loaded = EngramConfig::load(&config).unwrap();
+        assert!(loaded.auto_capture);
+        assert!(loaded.push_on_push);
+        assert_eq!(loaded.default_agent, Some("aider".into()));
+    }
+}

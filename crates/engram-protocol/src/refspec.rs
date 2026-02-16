@@ -71,3 +71,93 @@ pub fn ensure_all_refspecs(repo: &Repository) -> Result<Vec<String>, ProtocolErr
 
     Ok(configured)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn make_repo_with_remote() -> (TempDir, TempDir, Repository) {
+        let remote_tmp = TempDir::new().unwrap();
+        Repository::init_bare(remote_tmp.path()).unwrap();
+
+        let local_tmp = TempDir::new().unwrap();
+        let repo = Repository::init(local_tmp.path()).unwrap();
+        repo.remote("origin", remote_tmp.path().to_str().unwrap())
+            .unwrap();
+        (local_tmp, remote_tmp, repo)
+    }
+
+    #[test]
+    fn test_ensure_refspecs_adds_fetch_and_push() {
+        let (_local, _remote, repo) = make_repo_with_remote();
+
+        let changed = ensure_refspecs(&repo, "origin").unwrap();
+        assert!(changed, "Should report changes on first call");
+
+        // Verify fetch refspec was added
+        let remote = repo.find_remote("origin").unwrap();
+        let fetch_specs = remote.fetch_refspecs().unwrap();
+        let has_engram_fetch =
+            (0..fetch_specs.len()).any(|i| fetch_specs.get(i) == Some(ENGRAM_FETCH_REFSPEC));
+        assert!(has_engram_fetch, "Fetch refspec should be configured");
+
+        let push_specs = remote.push_refspecs().unwrap();
+        let has_engram_push =
+            (0..push_specs.len()).any(|i| push_specs.get(i) == Some(ENGRAM_PUSH_REFSPEC));
+        assert!(has_engram_push, "Push refspec should be configured");
+    }
+
+    #[test]
+    fn test_ensure_refspecs_idempotent() {
+        let (_local, _remote, repo) = make_repo_with_remote();
+
+        let first = ensure_refspecs(&repo, "origin").unwrap();
+        assert!(first);
+
+        let second = ensure_refspecs(&repo, "origin").unwrap();
+        assert!(!second, "Second call should report no changes");
+    }
+
+    #[test]
+    fn test_ensure_refspecs_remote_not_found() {
+        let tmp = TempDir::new().unwrap();
+        let repo = Repository::init(tmp.path()).unwrap();
+
+        let result = ensure_refspecs(&repo, "nonexistent");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProtocolError::RemoteNotFound(name) => assert_eq!(name, "nonexistent"),
+            other => panic!("Expected RemoteNotFound, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_ensure_all_refspecs_multiple_remotes() {
+        let remote1 = TempDir::new().unwrap();
+        Repository::init_bare(remote1.path()).unwrap();
+        let remote2 = TempDir::new().unwrap();
+        Repository::init_bare(remote2.path()).unwrap();
+
+        let local = TempDir::new().unwrap();
+        let repo = Repository::init(local.path()).unwrap();
+        repo.remote("origin", remote1.path().to_str().unwrap())
+            .unwrap();
+        repo.remote("upstream", remote2.path().to_str().unwrap())
+            .unwrap();
+
+        let configured = ensure_all_refspecs(&repo).unwrap();
+        assert_eq!(configured.len(), 2);
+        assert!(configured.contains(&"origin".to_string()));
+        assert!(configured.contains(&"upstream".to_string()));
+    }
+
+    #[test]
+    fn test_ensure_all_refspecs_no_remotes() {
+        let tmp = TempDir::new().unwrap();
+        let repo = Repository::init(tmp.path()).unwrap();
+
+        let configured = ensure_all_refspecs(&repo).unwrap();
+        assert!(configured.is_empty());
+    }
+}

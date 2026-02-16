@@ -69,6 +69,9 @@ pub fn push_engrams(
 }
 
 /// Fetch engram refs from a remote.
+///
+/// Fetches engram refs from the named remote. In dry-run mode, returns immediately
+/// with zero refs fetched.
 pub fn fetch_engrams(
     repo: &Repository,
     remote_name: &str,
@@ -108,4 +111,173 @@ pub fn fetch_engrams(
         remote: remote_name.into(),
         refs_fetched: new_refs,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engram_core::model::*;
+    use engram_core::storage::GitStorage;
+    use tempfile::TempDir;
+
+    fn make_test_data() -> EngramData {
+        EngramData {
+            manifest: Manifest {
+                id: EngramId::new(),
+                version: 1,
+                created_at: chrono::Utc::now(),
+                finished_at: None,
+                agent: AgentInfo {
+                    name: "test-agent".into(),
+                    model: None,
+                    version: None,
+                },
+                git_commits: vec![],
+                token_usage: TokenUsage::default(),
+                summary: Some("Test engram".into()),
+                tags: vec![],
+                capture_mode: CaptureMode::Sdk,
+                source_hash: None,
+            },
+            intent: Intent {
+                original_request: "test".into(),
+                interpreted_goal: None,
+                summary: None,
+                dead_ends: vec![],
+                decisions: vec![],
+            },
+            transcript: Transcript::default(),
+            operations: Operations::default(),
+            lineage: Lineage::default(),
+        }
+    }
+
+    fn make_repo_with_remote() -> (TempDir, TempDir, Repository) {
+        let remote_tmp = TempDir::new().unwrap();
+        Repository::init_bare(remote_tmp.path()).unwrap();
+
+        let local_tmp = TempDir::new().unwrap();
+        let repo = Repository::init(local_tmp.path()).unwrap();
+        repo.remote("origin", remote_tmp.path().to_str().unwrap())
+            .unwrap();
+        (local_tmp, remote_tmp, repo)
+    }
+
+    #[test]
+    fn test_push_dry_run_counts_refs() {
+        let (local_tmp, _remote_tmp, _repo) = make_repo_with_remote();
+        let storage = GitStorage::open(local_tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        // Create an engram
+        storage.create(&make_test_data()).unwrap();
+
+        let repo = storage.repo();
+        let opts = SyncOptions {
+            dry_run: true,
+            ..Default::default()
+        };
+        let result = push_engrams(repo, "origin", &opts).unwrap();
+        assert_eq!(result.remote, "origin");
+        assert_eq!(result.refs_pushed, 1);
+    }
+
+    #[test]
+    fn test_push_dry_run_zero_refs() {
+        let (local_tmp, _remote_tmp, _repo) = make_repo_with_remote();
+        let storage = GitStorage::open(local_tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let repo = storage.repo();
+        let opts = SyncOptions {
+            dry_run: true,
+            ..Default::default()
+        };
+        let result = push_engrams(repo, "origin", &opts).unwrap();
+        assert_eq!(result.refs_pushed, 0);
+    }
+
+    #[test]
+    fn test_fetch_dry_run() {
+        let (local_tmp, _remote_tmp, _repo) = make_repo_with_remote();
+        let storage = GitStorage::open(local_tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let repo = storage.repo();
+        let opts = SyncOptions {
+            dry_run: true,
+            ..Default::default()
+        };
+        let result = fetch_engrams(repo, "origin", &opts).unwrap();
+        assert_eq!(result.remote, "origin");
+        assert_eq!(result.refs_fetched, 0);
+    }
+
+    #[test]
+    fn test_push_remote_not_found() {
+        let tmp = TempDir::new().unwrap();
+        let repo = Repository::init(tmp.path()).unwrap();
+        // No remote configured
+
+        let opts = SyncOptions::default();
+        let result = push_engrams(&repo, "nonexistent", &opts);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fetch_remote_not_found() {
+        let tmp = TempDir::new().unwrap();
+        let repo = Repository::init(tmp.path()).unwrap();
+
+        let opts = SyncOptions::default();
+        let result = fetch_engrams(&repo, "nonexistent", &opts);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_push_and_fetch_local() {
+        let remote_tmp = TempDir::new().unwrap();
+        Repository::init_bare(remote_tmp.path()).unwrap();
+
+        // Create local repo with a remote
+        let local_tmp = TempDir::new().unwrap();
+        let local_repo = Repository::init(local_tmp.path()).unwrap();
+        local_repo
+            .remote("origin", remote_tmp.path().to_str().unwrap())
+            .unwrap();
+
+        let storage = GitStorage::open(local_tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        // Create an engram
+        let data = make_test_data();
+        let id = data.manifest.id.clone();
+        storage.create(&data).unwrap();
+
+        // Push to remote using explicit ref (git2 doesn't expand globs with no existing refs on remote)
+        let ref_name = format!("refs/engrams/{}/{}", id.fanout_prefix(), id.as_str());
+        let push_refspec = format!("{ref_name}:{ref_name}");
+        let push_opts = SyncOptions {
+            refspecs: vec![push_refspec],
+            ..Default::default()
+        };
+        let push_result = push_engrams(storage.repo(), "origin", &push_opts).unwrap();
+        assert_eq!(push_result.refs_pushed, 1);
+
+        // Create a second local repo to fetch into
+        let fetch_tmp = TempDir::new().unwrap();
+        let fetch_repo = Repository::init(fetch_tmp.path()).unwrap();
+        fetch_repo
+            .remote("origin", remote_tmp.path().to_str().unwrap())
+            .unwrap();
+
+        let fetch_opts = SyncOptions::default();
+        let fetch_result = fetch_engrams(&fetch_repo, "origin", &fetch_opts).unwrap();
+        assert_eq!(fetch_result.refs_fetched, 1);
+
+        // Verify the fetched ref exists
+        let fetch_storage = GitStorage::open(fetch_tmp.path()).unwrap();
+        let loaded = fetch_storage.read(id.as_str()).unwrap();
+        assert_eq!(loaded.manifest.id, id);
+    }
 }
