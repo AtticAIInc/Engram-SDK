@@ -1,11 +1,10 @@
-"""Git-native storage for engrams using pygit2."""
+"""Git-native storage for engrams using git CLI commands."""
 
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
-
-import pygit2
 
 from engram.model import EngramData, Manifest
 
@@ -13,30 +12,38 @@ from engram.model import EngramData, Manifest
 ENGRAM_REF_PREFIX = "refs/engrams/"
 
 
-class GitStorage:
-    """Store and retrieve engrams as native Git objects."""
+def _git(repo_path: str, args: list[str], input_data: bytes | None = None) -> str:
+    """Run a git command and return its stdout, stripped."""
+    result = subprocess.run(
+        ["git"] + args,
+        cwd=repo_path,
+        input=input_data,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"git {args[0]} failed: {stderr}")
+    return result.stdout.decode("utf-8").strip()
 
-    def __init__(self, repo: pygit2.Repository) -> None:
-        self._repo = repo
+
+class GitStorage:
+    """Store and retrieve engrams as native Git objects via git CLI."""
+
+    def __init__(self, repo_path: str | Path) -> None:
+        self._repo_path = str(repo_path)
+        # Verify this is a git repository
+        _git(self._repo_path, ["rev-parse", "--git-dir"])
 
     @classmethod
     def open(cls, path: str | Path) -> GitStorage:
         """Open a Git repository at the given path."""
-        repo = pygit2.Repository(str(path))
-        return cls(repo)
+        return cls(str(path))
 
     @classmethod
     def discover(cls, path: str | Path = ".") -> GitStorage:
         """Discover the Git repository from the given path."""
-        repo_path = pygit2.discover_repository(str(path))
-        if repo_path is None:
-            raise RuntimeError(f"No Git repository found at {path}")
-        repo = pygit2.Repository(repo_path)
-        return cls(repo)
-
-    @property
-    def repo(self) -> pygit2.Repository:
-        return self._repo
+        toplevel = _git(str(path), ["rev-parse", "--show-toplevel"])
+        return cls(toplevel)
 
     def create(self, data: EngramData) -> str:
         """Store an engram as Git objects and create a ref. Returns the engram ID."""
@@ -48,53 +55,47 @@ class GitStorage:
         lineage_bytes = json.dumps(data.lineage.to_dict(), indent=2).encode("utf-8")
 
         # Create blobs
-        manifest_oid = self._repo.create_blob(manifest_bytes)
-        intent_oid = self._repo.create_blob(intent_bytes)
-        transcript_oid = self._repo.create_blob(transcript_bytes)
-        operations_oid = self._repo.create_blob(operations_bytes)
-        lineage_oid = self._repo.create_blob(lineage_bytes)
+        manifest_oid = _git(self._repo_path, ["hash-object", "-w", "--stdin"], manifest_bytes)
+        intent_oid = _git(self._repo_path, ["hash-object", "-w", "--stdin"], intent_bytes)
+        transcript_oid = _git(self._repo_path, ["hash-object", "-w", "--stdin"], transcript_bytes)
+        operations_oid = _git(self._repo_path, ["hash-object", "-w", "--stdin"], operations_bytes)
+        lineage_oid = _git(self._repo_path, ["hash-object", "-w", "--stdin"], lineage_bytes)
 
-        # Build tree
-        tb = self._repo.TreeBuilder()
-        tb.insert("manifest.json", manifest_oid, pygit2.GIT_FILEMODE_BLOB)
-        tb.insert("intent.md", intent_oid, pygit2.GIT_FILEMODE_BLOB)
-        tb.insert("transcript.jsonl", transcript_oid, pygit2.GIT_FILEMODE_BLOB)
-        tb.insert("operations.json", operations_oid, pygit2.GIT_FILEMODE_BLOB)
-        tb.insert("lineage.json", lineage_oid, pygit2.GIT_FILEMODE_BLOB)
-        tree_oid = tb.write()
+        # Build tree via mktree (entries must be sorted alphabetically)
+        tree_input = "\n".join([
+            f"100644 blob {intent_oid}\tintent.md",
+            f"100644 blob {lineage_oid}\tlineage.json",
+            f"100644 blob {manifest_oid}\tmanifest.json",
+            f"100644 blob {operations_oid}\toperations.json",
+            f"100644 blob {transcript_oid}\ttranscript.jsonl",
+        ]).encode("utf-8")
+        tree_oid = _git(self._repo_path, ["mktree"], tree_input)
 
         # Create commit (standalone, no parent)
-        sig = pygit2.Signature("engram", "engram@local")
         summary = data.manifest.summary or "engram session"
-        message = f"engram: {summary}"
-        commit_oid = self._repo.create_commit(
-            None,  # Don't update any ref
-            sig,
-            sig,
-            message,
-            tree_oid,
-            [],  # No parents
+        commit_oid = _git(
+            self._repo_path,
+            ["commit-tree", tree_oid, "-m", f"engram: {summary}"],
         )
 
         # Create ref
         engram_id = data.manifest.id
         ref_name = _ref_name(engram_id)
-        self._repo.references.create(ref_name, commit_oid, force=True)
+        _git(self._repo_path, ["update-ref", ref_name, commit_oid])
 
         return engram_id
 
     def read(self, id_or_prefix: str) -> EngramData:
         """Read an engram by its ID (or prefix)."""
-        ref_name, _oid = self._resolve(id_or_prefix)
-        ref = self._repo.references.get(ref_name)
-        commit = self._repo.get(ref.target)
-        tree = commit.tree
+        ref_name = self._resolve(id_or_prefix)
+        commit_oid = _git(self._repo_path, ["rev-parse", ref_name])
+        tree_oid = _git(self._repo_path, ["rev-parse", f"{commit_oid}^{{tree}}"])
 
-        manifest_blob = self._repo.get(tree["manifest.json"].id)
-        intent_blob = self._repo.get(tree["intent.md"].id)
-        transcript_blob = self._repo.get(tree["transcript.jsonl"].id)
-        operations_blob = self._repo.get(tree["operations.json"].id)
-        lineage_blob = self._repo.get(tree["lineage.json"].id)
+        manifest_json = _git(self._repo_path, ["cat-file", "blob", f"{tree_oid}:manifest.json"])
+        intent_md = _git(self._repo_path, ["cat-file", "blob", f"{tree_oid}:intent.md"])
+        transcript_jsonl = _git(self._repo_path, ["cat-file", "blob", f"{tree_oid}:transcript.jsonl"])
+        operations_json = _git(self._repo_path, ["cat-file", "blob", f"{tree_oid}:operations.json"])
+        lineage_json = _git(self._repo_path, ["cat-file", "blob", f"{tree_oid}:lineage.json"])
 
         from engram.model import (
             Intent,
@@ -103,11 +104,11 @@ class GitStorage:
             Transcript,
         )
 
-        manifest = Manifest.from_dict(json.loads(manifest_blob.data))
-        intent = Intent.from_markdown(intent_blob.data.decode("utf-8"))
-        transcript = Transcript.from_jsonl(transcript_blob.data)
-        operations = Operations.from_dict(json.loads(operations_blob.data))
-        lineage = Lineage.from_dict(json.loads(lineage_blob.data))
+        manifest = Manifest.from_dict(json.loads(manifest_json))
+        intent = Intent.from_markdown(intent_md)
+        transcript = Transcript.from_jsonl(transcript_jsonl.encode("utf-8"))
+        operations = Operations.from_dict(json.loads(operations_json))
+        lineage = Lineage.from_dict(json.loads(lineage_json))
 
         return EngramData(
             manifest=manifest,
@@ -119,61 +120,86 @@ class GitStorage:
 
     def read_manifest(self, id_or_prefix: str) -> Manifest:
         """Read only the manifest (fast path)."""
-        ref_name, _oid = self._resolve(id_or_prefix)
-        ref = self._repo.references.get(ref_name)
-        commit = self._repo.get(ref.target)
-        tree = commit.tree
-        manifest_blob = self._repo.get(tree["manifest.json"].id)
-        return Manifest.from_dict(json.loads(manifest_blob.data))
+        ref_name = self._resolve(id_or_prefix)
+        commit_oid = _git(self._repo_path, ["rev-parse", ref_name])
+        tree_oid = _git(self._repo_path, ["rev-parse", f"{commit_oid}^{{tree}}"])
+        manifest_json = _git(self._repo_path, ["cat-file", "blob", f"{tree_oid}:manifest.json"])
+        return Manifest.from_dict(json.loads(manifest_json))
 
     def list(self) -> list[Manifest]:
         """List all engrams, most recent first."""
+        try:
+            output = _git(
+                self._repo_path,
+                ["for-each-ref", "--format=%(refname)", "refs/engrams/"],
+            )
+        except RuntimeError:
+            return []
+
+        if not output.strip():
+            return []
+
         manifests = []
-        for ref_name in self._repo.references:
-            if ref_name.startswith(ENGRAM_REF_PREFIX):
-                try:
-                    ref = self._repo.references.get(ref_name)
-                    commit = self._repo.get(ref.target)
-                    tree = commit.tree
-                    blob = self._repo.get(tree["manifest.json"].id)
-                    manifests.append(Manifest.from_dict(json.loads(blob.data)))
-                except Exception:
-                    continue
+        for ref in output.split("\n"):
+            ref = ref.strip()
+            if not ref:
+                continue
+            try:
+                commit_oid = _git(self._repo_path, ["rev-parse", ref])
+                tree_oid = _git(self._repo_path, ["rev-parse", f"{commit_oid}^{{tree}}"])
+                manifest_json = _git(
+                    self._repo_path,
+                    ["cat-file", "blob", f"{tree_oid}:manifest.json"],
+                )
+                manifests.append(Manifest.from_dict(json.loads(manifest_json)))
+            except Exception:
+                continue
+
         manifests.sort(key=lambda m: m.created_at, reverse=True)
         return manifests
 
     def delete(self, id_or_prefix: str) -> None:
         """Delete an engram by removing its ref."""
-        ref_name, _oid = self._resolve(id_or_prefix)
-        self._repo.references.delete(ref_name)
+        ref_name = self._resolve(id_or_prefix)
+        _git(self._repo_path, ["update-ref", "-d", ref_name])
 
-    def _resolve(self, id_or_prefix: str) -> tuple[str, pygit2.Oid]:
-        """Resolve an engram ID or prefix to (ref_name, oid)."""
+    def _resolve(self, id_or_prefix: str) -> str:
+        """Resolve an engram ID or prefix to a ref name."""
         # Try exact match first
         exact_ref = _ref_name(id_or_prefix)
         try:
-            ref = self._repo.references.get(exact_ref)
-            if ref is not None:
-                return exact_ref, ref.target
-        except (KeyError, ValueError):
+            _git(self._repo_path, ["rev-parse", "--verify", exact_ref])
+            return exact_ref
+        except RuntimeError:
             pass
 
         # Try prefix match
+        try:
+            output = _git(
+                self._repo_path,
+                ["for-each-ref", "--format=%(refname)", "refs/engrams/"],
+            )
+        except RuntimeError:
+            raise KeyError(f"Engram not found: {id_or_prefix}")
+
         matches = []
-        for ref_name in self._repo.references:
-            if ref_name.startswith(ENGRAM_REF_PREFIX):
-                # Extract ID from refs/engrams/ab/full-id
-                parts = ref_name[len(ENGRAM_REF_PREFIX):].split("/", 1)
-                if len(parts) == 2:
-                    full_id = parts[1]
-                    if full_id.startswith(id_or_prefix):
-                        ref = self._repo.references.get(ref_name)
-                        matches.append((ref_name, ref.target))
+        for ref in output.split("\n"):
+            ref = ref.strip()
+            if not ref:
+                continue
+            # Extract ID from refs/engrams/ab/full-id
+            parts = ref[len(ENGRAM_REF_PREFIX):].split("/", 1)
+            if len(parts) == 2:
+                full_id = parts[1]
+                if full_id.startswith(id_or_prefix):
+                    matches.append(ref)
 
         if len(matches) == 0:
             raise KeyError(f"Engram not found: {id_or_prefix}")
         if len(matches) > 1:
-            raise ValueError(f"Ambiguous engram prefix: {id_or_prefix} ({len(matches)} matches)")
+            raise ValueError(
+                f"Ambiguous engram prefix: {id_or_prefix} ({len(matches)} matches)"
+            )
         return matches[0]
 
 

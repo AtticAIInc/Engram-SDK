@@ -305,7 +305,7 @@ crates/
   engram-mcp/        MCP server for AI agent integration (rmcp)
   engram-cli/        CLI binary (installed as `engram`)
 sdks/
-  python/            Python SDK (pygit2)
+  python/            Python SDK (git CLI)
   typescript/        TypeScript SDK (git CLI)
 ```
 

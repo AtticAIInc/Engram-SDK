@@ -23,7 +23,7 @@ cargo run -p engram-cli -- <cmd>      # Run the CLI
 ### SDK Tests
 
 ```bash
-# Python SDK (requires pygit2)
+# Python SDK
 cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 
 # TypeScript SDK (requires Node.js 18+)
@@ -44,7 +44,7 @@ crates/engram-protocol/  Push/pull/fetch engram refs between repos via Git refsp
 crates/engram-sdk/       Fluent Rust SDK: EngramSession::begin() -> log_*() -> commit()
 crates/engram-mcp/       MCP server for AI agent integration (rmcp crate, stdio transport)
 crates/engram-cli/       CLI binary (installed as `engram`) — 20 public subcommands + 1 hidden
-sdks/python/             Python SDK (pygit2), install with pip
+sdks/python/             Python SDK (git CLI), install with pip
 sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with npm
 ```
 

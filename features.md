@@ -558,7 +558,7 @@ let mut session = EngramSession::begin("my-agent", Some("claude-sonnet-4-5"));
 
 ### Python SDK
 
-**Package:** `engram` (requires pygit2 >= 1.14, Python >= 3.9)
+**Package:** `engram` (Python >= 3.9, uses git CLI)
 
 ```python
 from engram import EngramSession
@@ -602,7 +602,7 @@ const id = session.commit('abc123', 'Implemented OAuth2');
 
 | Aspect | Rust | Python | TypeScript |
 |--------|------|--------|------------|
-| Git library | git2 (vendored libgit2) | pygit2 (direct binding) | Git CLI (execFileSync) |
+| Git library | git2 (vendored libgit2) | Git CLI (subprocess) | Git CLI (execFileSync) |
 | ID generation | uuid crate | uuid4().hex | crypto.randomUUID() |
 | Ref layout | `refs/engrams/<ab>/<id>` | Same | Same |
 | Object model | 5 blobs + tree + orphan commit | Same | Same |
@@ -657,7 +657,7 @@ crates/
   engram-mcp/        MCP server for AI agent integration (rmcp)
   engram-cli/        CLI binary (installed as `engram`)
 sdks/
-  python/            Python SDK (pygit2)
+  python/            Python SDK (git CLI)
   typescript/        TypeScript SDK (git CLI)
 ```
 
@@ -703,7 +703,7 @@ sdks/
 ### Requirements
 
 - Rust 1.80+ and a C compiler (for vendored libgit2/OpenSSL)
-- Python 3.9+ with pygit2 (for Python SDK)
+- Python 3.9+ (for Python SDK)
 - Node.js 18+ (for TypeScript SDK)
 
 ### License

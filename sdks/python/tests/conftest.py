@@ -1,21 +1,22 @@
 """Test fixtures for engram Python SDK."""
 
-import os
-import tempfile
+import subprocess
 from pathlib import Path
 
-import pygit2
 import pytest
 
 
 @pytest.fixture
 def tmp_git_repo(tmp_path: Path):
-    """Create a temporary Git repository with an initial commit."""
-    repo = pygit2.init_repository(str(tmp_path))
-
-    # Create initial commit
-    sig = pygit2.Signature("Test User", "test@example.com")
-    tree = repo.TreeBuilder().write()
-    repo.create_commit("HEAD", sig, sig, "Initial commit", tree, [])
-
-    return repo
+    """Create a temporary Git repository."""
+    repo_path = str(tmp_path)
+    subprocess.run(["git", "init", repo_path], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=repo_path, check=True, capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=repo_path, check=True, capture_output=True,
+    )
+    return repo_path

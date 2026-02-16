@@ -1,6 +1,5 @@
 """Tests for engram session builder and storage lifecycle."""
 
-import pygit2
 import pytest
 
 from engram.model import CaptureMode
@@ -46,7 +45,7 @@ def test_session_build():
 
 def test_session_store(tmp_git_repo):
     """Test full create → read lifecycle in a temp git repo."""
-    storage = GitStorage(tmp_git_repo)
+    storage = GitStorage.open(tmp_git_repo)
 
     session = EngramSession.begin("test-agent", "claude-sonnet")
     session.log_message("user", "Fix the login bug")
@@ -85,7 +84,7 @@ def test_accumulate_tokens():
 
 def test_context_manager(tmp_git_repo):
     """Test using EngramSession as a sync context manager."""
-    storage = GitStorage(tmp_git_repo)
+    storage = GitStorage.open(tmp_git_repo)
 
     with EngramSession.begin("ctx-agent", "gpt-4") as session:
         session._storage = storage
