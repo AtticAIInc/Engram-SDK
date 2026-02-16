@@ -14,9 +14,9 @@ pub struct ImportArgs {
     /// Path to session file or directory
     pub path: Option<PathBuf>,
 
-    /// Format hint
-    #[arg(long, value_enum)]
-    pub format: Option<ImportFormat>,
+    /// Format hint (claude-code or aider)
+    #[arg(long = "import-format", value_enum)]
+    pub import_format: Option<ImportFormat>,
 
     /// Auto-detect and import all discoverable sessions
     #[arg(long)]
@@ -67,8 +67,8 @@ pub fn run(args: &ImportArgs) -> Result<()> {
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("Specify a path or use --auto-detect"))?;
 
-    let format = args.format.as_ref().ok_or_else(|| {
-        anyhow::anyhow!("Specify --format (claude-code or aider) or use --auto-detect")
+    let format = args.import_format.as_ref().ok_or_else(|| {
+        anyhow::anyhow!("Specify --import-format (claude-code or aider) or use --auto-detect")
     })?;
 
     match format {

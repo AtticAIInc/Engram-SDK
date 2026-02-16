@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::error::CoreError;
 
-const HOOKS: &[&str] = &["prepare-commit-msg", "post-commit"];
+const HOOKS: &[&str] = &["prepare-commit-msg", "post-commit", "pre-push"];
 
 /// Install engram git hooks into the repository's hooks directory.
 ///

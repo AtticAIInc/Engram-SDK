@@ -382,7 +382,9 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
 /// Convert a filesystem path to Claude Code's project key format.
 /// /Users/sjonas/myproject -> -Users-sjonas-myproject
 fn path_to_claude_key(path: &Path) -> String {
-    path.to_string_lossy().replace('/', "-")
+    let s = path.to_string_lossy();
+    let s = s.trim_end_matches('/');
+    s.replace('/', "-")
 }
 
 fn dirs_for_claude_projects() -> Option<PathBuf> {
@@ -402,6 +404,11 @@ mod tests {
     fn test_path_to_claude_key() {
         assert_eq!(
             path_to_claude_key(Path::new("/Users/sjonas/myproject")),
+            "-Users-sjonas-myproject"
+        );
+        // Trailing slash should be stripped
+        assert_eq!(
+            path_to_claude_key(Path::new("/Users/sjonas/myproject/")),
             "-Users-sjonas-myproject"
         );
     }

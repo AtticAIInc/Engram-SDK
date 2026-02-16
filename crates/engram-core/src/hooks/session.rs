@@ -18,6 +18,10 @@ pub struct ActiveSession {
     pub started_at: DateTime<Utc>,
     pub commits: Vec<String>,
     pub token_usage: TokenUsage,
+    /// True when this session was created by auto-capture (not `engram record`).
+    /// Auto-captured sessions are cleaned up after post-commit.
+    #[serde(default)]
+    pub auto_capture: bool,
 }
 
 impl ActiveSession {
@@ -29,6 +33,7 @@ impl ActiveSession {
             started_at: Utc::now(),
             commits: Vec::new(),
             token_usage: TokenUsage::default(),
+            auto_capture: false,
         }
     }
 
