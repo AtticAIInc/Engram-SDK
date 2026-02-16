@@ -5,8 +5,11 @@ use engram_core::storage::GitStorage;
 pub fn run() -> Result<()> {
     let storage = GitStorage::discover().context("Not inside a Git repository")?;
 
+    // Auto-initialize if needed so the MCP server "just works"
     if !storage.is_initialized() {
-        anyhow::bail!("Engram is not initialized. Run `engram init` first.");
+        storage
+            .init()
+            .context("Failed to auto-initialize engram")?;
     }
 
     let repo_path = storage

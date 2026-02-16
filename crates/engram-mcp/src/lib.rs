@@ -469,8 +469,18 @@ impl ServerHandler for EngramMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "Engram MCP Server - Query agent reasoning history stored in Git. \
-                 Search reasoning, trace file history, surface dead ends and decisions."
+                "Engram MCP Server — Query agent reasoning history stored as Git-native objects.\n\
+                 \n\
+                 Available tools:\n\
+                 - engram_search: Full-text search across all captured reasoning\n\
+                 - engram_show: Show full details of a specific engram (use \"HEAD\" for most recent)\n\
+                 - engram_log: List recent engrams with token usage and cost\n\
+                 - engram_trace: Reasoning history for a specific file path\n\
+                 - engram_diff: Compare two engrams (files, tokens, cost)\n\
+                 - engram_dead_ends: Surface rejected approaches and architectural decisions\n\
+                 \n\
+                 Use these tools to check prior reasoning before making changes, \
+                 avoid repeating dead ends, and understand the history behind existing code."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),

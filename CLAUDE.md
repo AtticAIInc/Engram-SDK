@@ -104,6 +104,15 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 
 - `src/lib.rs` — `EngramMcpServer` struct with 6 tools: `engram_search`, `engram_show`, `engram_log`, `engram_trace`, `engram_diff`, `engram_dead_ends`. Uses rmcp `#[tool_router]`, `#[tool]`, `#[tool_handler]` macros. `run_stdio()` function starts the server.
 
+## MCP Tools (when available)
+
+When the engram MCP server is connected, use these tools proactively:
+
+- **Before modifying a file**: call `engram_trace` with the file path to understand prior reasoning about that file
+- **Before starting a task**: call `engram_search` to find related prior work and avoid duplicating effort
+- **To avoid repeating mistakes**: call `engram_dead_ends` to check what approaches were already tried and rejected
+- **To understand recent context**: call `engram_log` to see recent engrams, and `engram_show` with id "HEAD" to see the most recent session's full details
+
 ## License
 
 Apache-2.0 OR MIT (dual-licensed).

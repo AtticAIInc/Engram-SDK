@@ -220,16 +220,41 @@ engram mcp
 
 Starts an MCP server on stdio with 6 tools:
 
-| Tool | Description |
-|------|-------------|
-| `engram_search` | Full-text search across engrams |
-| `engram_show` | Show full details of an engram |
-| `engram_log` | List recent engrams |
-| `engram_trace` | Reasoning history for a file |
-| `engram_diff` | Compare two engrams |
-| `engram_dead_ends` | Surface rejected approaches |
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `engram_search` | `query`, `limit?` | Full-text search across intent, transcript, file paths, and dead ends |
+| `engram_show` | `id` (or `"HEAD"`) | Show full engram details: manifest, intent, file changes, decisions |
+| `engram_log` | `limit?`, `by_agent?` | List recent engrams with token usage and cost |
+| `engram_trace` | `file_path` | Chronological reasoning history for a specific file |
+| `engram_diff` | `id_a`, `id_b` | Compare two engrams: common/unique files, token and cost deltas |
+| `engram_dead_ends` | `id?`, `query?` | Surface rejected approaches and architectural decisions |
 
-Configure in Claude Desktop (`claude_desktop_config.json`):
+### Claude Code
+
+Repos that include a `.mcp.json` file (like this one) are auto-configured — Claude Code will discover and start the engram MCP server automatically. No manual setup needed.
+
+To add engram MCP to any repo, create `.mcp.json` at the repo root:
+
+```json
+{
+  "mcpServers": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"],
+      "env": {
+        "PATH": "${HOME}/.cargo/bin:${PATH}"
+      }
+    }
+  }
+}
+```
+
+For global access across all projects, add the same config to `~/.claude/mcp.json`.
+
+### Claude Desktop
+
+Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
 ```json
 {
   "mcpServers": {
