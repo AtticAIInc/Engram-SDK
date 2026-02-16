@@ -1,0 +1,447 @@
+{
+  "tool_calls": [
+    {
+      "timestamp": "2026-02-16T13:58:05.866Z",
+      "tool_name": "Task",
+      "input": {
+        "description": "Explore core and capture crates",
+        "prompt": "Thoroughly explore the engram codebase, focusing on the core and capture crates. I need a comprehensive feature inventory.\n\nFor engram-core (crates/engram-core/):\n- Read all source files to understand the data model, storage engine, config, error types, and hooks system\n- Document every public API, struct, enum, and trait\n- Note the Git object model and how engrams are stored\n\nFor engram-capture (crates/engram-capture/):\n- Read all source files to understand PTY capture, session building, file change detection, and importers\n- Document the Claude Code and Aider import capabilities\n- Note the dead-end/decision extraction heuristics\n\nReturn a detailed feature inventory for each crate.",
+        "run_in_background": true,
+        "subagent_type": "Explore"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:58:10.726Z",
+      "tool_name": "Task",
+      "input": {
+        "description": "Explore query and protocol crates",
+        "prompt": "Thoroughly explore the engram codebase, focusing on the query and protocol crates. I need a comprehensive feature inventory.\n\nFor engram-query (crates/engram-query/):\n- Read all source files to understand the Tantivy search index, file tracing, engram diff, context graph, and branch review\n- Document search capabilities, graph output formats, review workflow\n\nFor engram-protocol (crates/engram-protocol/):\n- Read all source files to understand push/pull/fetch of engram refs between repositories\n- Document the sync protocol and refspec management\n\nReturn a detailed feature inventory for each crate.",
+        "run_in_background": true,
+        "subagent_type": "Explore"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:58:16.065Z",
+      "tool_name": "Task",
+      "input": {
+        "description": "Explore SDK, MCP, and CLI crates",
+        "prompt": "Thoroughly explore the engram codebase, focusing on the SDK, MCP, and CLI crates. I need a comprehensive feature inventory.\n\nFor engram-sdk (crates/engram-sdk/):\n- Read all source files to understand the fluent Rust SDK API\n- Document the session lifecycle (begin -> log -> commit)\n\nFor engram-mcp (crates/engram-mcp/):\n- Read all source files to understand the MCP server, tools exposed, and transport\n- Document all 6 MCP tools and their parameters\n\nFor engram-cli (crates/engram-cli/):\n- Read all source files to understand every CLI subcommand\n- Document all 21 commands (20 public + 1 hidden), their arguments, and behavior\n\nReturn a detailed feature inventory for each crate.",
+        "run_in_background": true,
+        "subagent_type": "Explore"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:58:20.691Z",
+      "tool_name": "Task",
+      "input": {
+        "description": "Explore Python and TypeScript SDKs",
+        "prompt": "Thoroughly explore the engram codebase, focusing on the Python and TypeScript SDKs. I need a comprehensive feature inventory.\n\nFor sdks/python/:\n- Read all source files, setup.py/pyproject.toml, and tests\n- Document the Python SDK's API, classes, methods, and capabilities\n- Note the pygit2 dependency and how it interfaces with Git\n\nFor sdks/typescript/:\n- Read all source files, package.json, and tests\n- Document the TypeScript SDK's API, classes, methods, and capabilities\n- Note how it uses git CLI via execFileSync\n\nReturn a detailed feature inventory for each SDK.",
+        "run_in_background": true,
+        "subagent_type": "Explore"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:58:25.844Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/README.md"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:58:26.081Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/Cargo.toml"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:58:31.411Z",
+      "tool_name": "TaskOutput",
+      "input": {
+        "block": true,
+        "task_id": "aa5993d",
+        "timeout": 120000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:31.715Z",
+      "tool_name": "TaskOutput",
+      "input": {
+        "block": true,
+        "task_id": "a905155",
+        "timeout": 120000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:32.385Z",
+      "tool_name": "TaskOutput",
+      "input": {
+        "block": true,
+        "task_id": "a691d71",
+        "timeout": 120000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:33.029Z",
+      "tool_name": "TaskOutput",
+      "input": {
+        "block": true,
+        "task_id": "a8604d5",
+        "timeout": 120000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:39.280Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/private/tmp/claude-501/-Users-sjonas-engram/tasks/aa5993d.output",
+        "limit": 200,
+        "offset": 1
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:43.539Z",
+      "tool_name": "Grep",
+      "input": {
+        "-n": true,
+        "output_mode": "content",
+        "path": "/private/tmp/claude-501/-Users-sjonas-engram/tasks/aa5993d.output",
+        "pattern": "comprehensive feature inventory|## ENGRAM-CORE|## ENGRAM-CAPTURE|## Summary|### Core Modules"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:47.618Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/private/tmp/claude-501/-Users-sjonas-engram/tasks/aa5993d.output",
+        "limit": 400,
+        "offset": 3590
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:50.420Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/private/tmp/claude-501/-Users-sjonas-engram/tasks/aa5993d.output",
+        "limit": 20,
+        "offset": 100
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T13:59:54.654Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/private/tmp/claude-501/-Users-sjonas-engram/tasks/aa5993d.output",
+        "limit": 5,
+        "offset": 112
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:02:19.042Z",
+      "tool_name": "Write",
+      "input": {
+        "content": "# Engram Features\n\nEngram captures AI agent reasoning as first-class, versioned data in Git. This document catalogs every feature across the CLI, Rust library crates, MCP server, and language SDKs.\n\n---\n\n## Table of Contents\n\n- [Git-Native Storage Engine](#git-native-storage-engine)\n- [Reasoning Data Model](#reasoning-data-model)\n- [Session Capture](#session-capture)\n- [Session Import](#session-import)\n- [Search and Indexing](#search-and-indexing)\n- [File Tracing](#file-tracing)\n- [Engram Diff](#engram-diff)\n- [Context Graph](#context-graph)\n- [Branch Review](#branch-review)\n- [PR Summary Generation](#pr-summary-generation)\n- [Reasoning Blame](#reasoning-blame)\n- [Statistics](#statistics)\n- [Garbage Collection](#garbage-collection)\n- [Remote Sync (Push / Pull / Fetch)](#remote-sync-push--pull--fetch)\n- [Git Hooks Integration](#git-hooks-integration)\n- [MCP Server](#mcp-server)\n- [SDK Integration](#sdk-integration)\n  - [Rust SDK](#rust-sdk)\n  - [Python SDK](#python-sdk)\n  - [TypeScript SDK](#typescript-sdk)\n- [CLI Reference](#cli-reference)\n- [Architecture and Design](#architecture-and-design)\n\n---\n\n## Git-Native Storage Engine\n\nEngrams are stored as native Git objects -- no sidecar database, no external dependencies, no vendor lock-in. They travel with `clone`, `push`, and `pull`.\n\n**Object model:** Each engram is a standalone Git commit pointing to a tree of five blobs:\n\n```\nrefs/engrams/<ab>/<full-id>  ->  commit (\"engram: <id>\")\n                                    └── tree\n                                        ├── manifest.json      Compact metadata\n                                        ├── intent.md          Human-readable reasoning\n                                        ├── transcript.jsonl   Full session (one message per line)\n                                        ├── operations.json    Tool calls, file ops, shell commands\n                                        └── lineage.json       Relationships to other engrams\n```\n\n**Key properties:**\n\n| Property | Detail |\n|----------|--------|\n| Ref layout | `refs/engrams/<fanout>/<full-id>` with 2-char fanout prefix |\n| ID format | UUID v4 hex, 32 characters (no dashes) |\n| ID resolution | Exact match, prefix match, or `HEAD` alias (via `.git/engram-head` pointer) |\n| HEAD pointer | `.git/engram-head` file updated on every create for O(1) resolution |\n| Config | `[engram]` section in `.git/config` (`enabled`, `auto_capture`, `default_agent`, `push_on_push`) |\n| Import dedup | SHA-256 `source_hash` on Manifest prevents re-importing the same session file |\n| Commits | Orphan commits (no parents) -- engrams form their own DAG via lineage, separate from code history |\n\n**CRUD operations** (via `GitStorage`):\n\n- `create(data)` -- serialize and store as Git objects, create ref, update head pointer\n- `read(id_or_prefix)` -- resolve ID, load full `EngramData` from Git objects\n- `read_manifest(id_or_prefix)` -- fast path, loads only the manifest blob\n- `list(opts)` -- enumerate all engram refs, sorted by `created_at` descending, with optional agent filter and limit\n- `delete(id_or_prefix)` -- remove the engram ref\n- `find_by_source_hash(hash)` -- lookup for import deduplication\n\n---\n\n## Reasoning Data Model\n\nEvery engram captures a complete reasoning unit with five components:\n\n### Manifest (`manifest.json`)\n\nCore metadata for fast listing without reading the full engram.\n\n| Field | Type | Description |\n|-------|------|-------------|\n| `id` | EngramId | 32-char UUID v4 hex |\n| `version` | u32 | Schema version |\n| `created_at` | DateTime | Session start timestamp |\n| `finished_at` | DateTime? | Session end timestamp |\n| `agent` | AgentInfo | Agent name, model, and version |\n| `git_commits` | Vec\\<String\\> | Associated code commit SHAs |\n| `token_usage` | TokenUsage | Input/output/cache tokens and cost |\n| `summary` | String? | Brief summary of the session |\n| `tags` | Vec\\<String\\> | User-defined tags |\n| `capture_mode` | CaptureMode | `wrapper`, `import`, or `sdk` |\n| `source_hash` | String? | SHA-256 for import deduplication |\n\n### Intent (`intent.md`)\n\nHuman-readable reasoning summary, stored as Markdown with structured sections.\n\n| Field | Description |\n|-------|-------------|\n| `original_request` | The exact human instruction that started the session |\n| `interpreted_goal` | Agent's interpretation of what was being asked |\n| `summary` | Brief description of what was accomplished |\n| `dead_ends` | Approaches tried and rejected (approach + reason) |\n| `decisions` | Architectural decisions made (description + rationale) |\n\n### Transcript (`transcript.jsonl`)\n\nFull conversation log, one JSON entry per line.\n\n| Entry type | Content |\n|------------|---------|\n| Text | Role (user/assistant/system/tool) + text content |\n| ToolUse | Tool name, tool ID, JSON input (Claude format) |\n| ToolResult | Tool ID, output text, error flag |\n| Thinking | Extended thinking / chain-of-thought text |\n\n### Operations (`operations.json`)\n\nConcrete actions taken during the session.\n\n| Section | Fields |\n|---------|--------|\n| Tool calls | timestamp, tool_name, input (JSON), output_summary, duration_ms, is_error |\n| File changes | path, change_type (created/modified/deleted/renamed), lines added/removed |\n| Shell commands | timestamp, command, exit_code, duration_ms |\n\n### Lineage (`lineage.json`)\n\nRelationships between engrams and code.\n\n| Field | Description |\n|-------|-------------|\n| `parent_engram` | ID of preceding engram in a reasoning chain |\n| `child_engrams` | IDs of engrams that follow from this one |\n| `related_engrams` | Typed relationships (follows_from, motivates, depends_on, supersedes, conflicts_with) |\n| `git_commits` | Code commits produced during this session |\n| `branch` | Git branch name |\n\n### Token Economics\n\n| Field | Description |\n|-------|-------------|\n| `input_tokens` | Tokens sent to the model |\n| `output_tokens` | Tokens received from the model |\n| `cache_read_tokens` | Tokens served from prompt cache |\n| `cache_write_tokens` | Tokens written to prompt cache |\n| `total_tokens` | Sum of all token fields |\n| `cost_usd` | Estimated cost in USD |\n\n---\n\n## Session Capture\n\n**Command:** `engram record -- <command> [args...]`\n\nWraps any AI agent command in a PTY (pseudo-terminal) to capture its full session.\n\n**How it works:**\n\n1. Snapshots the working tree (SHA-256 hash of every tracked file, respecting `.gitignore`, `.git/info/exclude`, and global gitignore via the `ignore` crate)\n2. Creates an `ActiveSession` (`.git/engram-session` with `fs2` advisory file locking)\n3. Spawns the command in a PTY with separate reader/writer threads\n4. Captures all stdout/stderr output\n5. After exit, re-snapshots the working tree and diffs to detect file changes\n6. Runs heuristic dead-end/decision extraction on the raw output\n7. Builds and stores the engram, incrementally updates the search index\n\n**Dead-end / decision extraction heuristics** (case-insensitive patterns on raw output):\n\n| Pattern | Extracted as |\n|---------|-------------|\n| \"tried X but Y\" | Dead end |\n| \"rejected X because Y\" | Dead end |\n| \"X didn't work because Y\" | Dead end |\n| \"instead of X\" | Dead end |\n| \"decided to X because Y\" | Decision |\n| \"chose X over Y\" | Decision |\n\n**Options:**\n\n| Flag | Description |\n|------|-------------|\n| `--agent NAME` | Agent name (auto-detected from command if omitted) |\n| `--model MODEL` | Model name (e.g., `claude-sonnet-4-5`, `gpt-4o`) |\n\n---\n\n## Session Import\n\n**Command:** `engram import [path] [--format FORMAT] [--auto-detect] [--dry-run]`\n\nImport reasoning sessions from existing AI coding tools.\n\n### Claude Code Import\n\nParses Claude Code JSONL session files from `~/.claude/projects/`.\n\n**Capabilities:**\n- Auto-discovers session files by converting the repo path to Claude's project key format (e.g., `/Users/name/project` -> `-Users-name-project`)\n- Parses JSONL entries with flexible content blocks: text, tool_use, tool_result, thinking\n- Extracts model name from the first assistant message\n- Accumulates token usage including cache tokens (cache_creation_input_tokens, cache_read_input_tokens)\n- Tracks file operations from Write/Edit/NotebookEdit tool calls\n- Captures agent version from session metadata\n- Skips sidechain messages\n\n### Aider Import\n\nParses Aider's `.aider.chat.history.md` markdown format.\n\n**Capabilities:**\n- Discovers `.aider.chat.history.md` in the repository root\n- Splits multi-session files by `# aider chat started at` headers\n- Parses user messages (`#### ` prefix), assistant responses (unprefixed), and system output (`> ` prefix)\n- Extracts token counts from `> Tokens: 3.2k sent, 245 received. Cost: $0.01` lines\n- Supports k/K/m/M suffixes for token numbers (e.g., `3.2k` = 3200)\n- Each session in a file gets a unique source hash: `SHA256(file_hash:index)`\n\n### Deduplication\n\nBoth importers compute a SHA-256 `source_hash` from the source file content. Before storing, `find_by_source_hash()` checks if the hash already exists. Re-importing the same file is always safe.\n\n---\n\n## Search and Indexing\n\n**Command:** `engram search <query> [-n LIMIT]`\n\nFull-text search powered by Tantivy, stored at `.git/engram-index/`.\n\n**Indexed fields:**\n\n| Field | Searchable | Stored | Type |\n|-------|-----------|--------|------|\n| `id` | exact | yes | STRING |\n| `intent_request` | full-text | yes | TEXT |\n| `intent_summary` | full-text | yes | TEXT |\n| `transcript_text` | full-text | no | TEXT |\n| `agent_name` | exact | yes | STRING |\n| `agent_model` | exact | yes | STRING |\n| `created_at` | range | yes | DATE |\n| `file_paths` | full-text | yes | TEXT |\n| `dead_ends` | full-text | yes | TEXT |\n| `cost_usd` | range | yes | F64 |\n| `total_tokens` | range | yes | U64 |\n| `manifest_json` | no | yes | stored-only |\n\n**Search behavior:**\n- Queries are parsed by Tantivy's QueryParser across 5 fields: intent_request, intent_summary, transcript_text, dead_ends, file_paths\n- Results ranked by relevance score\n- Specialized `search_by_file(path, limit)` for file-specific lookups\n\n**Index lifecycle:**\n- Lazy creation on first search (`ensure_index`)\n- Incremental updates when creating or importing engrams (`index_engram`)\n- Full rebuild on demand (`engram reindex`)\n- Automatic rebuild after `engram pull` fetches new refs\n- 50MB writer heap allocation\n\n---\n\n## File Tracing\n\n**Command:** `engram trace <file>`\n\nShows the complete reasoning history for a specific file across all engrams.\n\n- Lists every engram that created, modified, or deleted the file\n- Results sorted chronologically (oldest first)\n- Displays: short ID, date, agent name, summary, and change type\n- Powered by `search_by_file()` under the hood (limit: 100 results)\n\n---\n\n## Engram Diff\n\n**Command:** `engram diff <id_a> <id_b>`\n\nCompares two engrams side-by-side.\n\n**Comparison output:**\n\n| Section | Description |\n|---------|-------------|\n| Common files | Files modified by both engrams |\n| Only in A | Files unique to the first engram |\n| Only in B | Files unique to the second engram |\n| Token delta | Difference in total tokens (B - A) |\n| Cost delta | Difference in USD cost (B - A) |\n\n---\n\n## Context Graph\n\n**Command:** `engram graph [node] [--depth N] [--dot]`\n\nBuilds a semantic reasoning graph over the codebase.\n\n**Node types:**\n- Engram (box shape in DOT) -- labeled with summary or short ID\n- File (note shape) -- source files touched by engrams\n- Agent (diamond shape) -- AI agents that created engrams\n- Commit (ellipse shape) -- Git commits linked to engrams\n\n**Edge types:**\n- Engram --UsedAgent--> Agent\n- Engram --TouchedFile--> File\n- File --ModifiedBy--> Engram\n- Engram --ProducedBy--> Commit\n- Engram --FollowsFrom--> Parent Engram (lineage)\n\n**Features:**\n- Full graph construction from all engrams\n- Subgraph extraction via BFS around a center node (e.g., `file:src/auth.rs`)\n- Configurable traversal depth (default: 2)\n- Node deduplication via HashSet\n\n**Output formats:**\n- Text -- node and edge listing with counts\n- JSON -- full node/edge data\n- Graphviz DOT -- with shapes, edge labels, left-to-right layout (`rankdir=LR`)\n\n---\n\n## Branch Review\n\n**Command:** `engram review <base>..<head>`\n\nIntent-based code review: read the chain of reasoning instead of line-by-line diffs.\n\n**How it works:**\n1. Resolves base and head refs\n2. Walks the git log (revwalk from head, hiding base)\n3. For each commit, parses the message for `Engram-Id:` trailers\n4. Deduplicates engram IDs\n5. Reads full engram data and aggregates\n\n**Output:**\n- Total commits in range\n- Number of engrams found\n- Aggregate token usage and cost\n- All files changed across engrams\n- Per-engram: short ID, commit SHA, summary\n\n---\n\n## PR Summary Generation\n\n**Command:** `engram pr-summary <base>..<head> [--format json|markdown]`\n\nAuto-generates structured PR descriptions from the engram chain.\n\n**Markdown output includes:**\n- Summary section with per-engram summaries\n- Files changed across all engrams\n- Dead ends explored (rejected approaches and reasons)\n- Token economics (total tokens, total cost)\n- Commit list\n- Bot attribution footer\n\n---\n\n## Reasoning Blame\n\n**Command:** `engram blame <file> [-n LIMIT]`\n\nShows reasoning blame for a file -- who changed it, when, and why.\n\n**Output per engram:**\n- Short ID and date\n- Change type (created / modified / deleted / touched)\n- Agent name\n- Summary\n- Intent (if different from summary)\n- Dead ends encountered\n\n---\n\n## Statistics\n\n**Command:** `engram stats`\n\nAggregate statistics across all engrams.\n\n**Output:**\n- Total engram count\n- Total tokens consumed\n- Total cost (USD)\n- Date range (earliest to latest)\n- Breakdown by agent name\n- Breakdown by capture mode (wrapper / import / sdk)\n\n---\n\n## Garbage Collection\n\n**Command:** `engram gc --older-than <duration> [--dry-run] [-y]`\n\nRemoves engrams older than a specified duration.\n\n**Duration units:**\n- `d` -- days (e.g., `30d`)\n- `w` -- weeks (e.g., `4w`)\n- `m` -- months (30 days, e.g., `6m`)\n- `y` -- years (365 days, e.g., `1y`)\n\n**Safety:**\n- `--dry-run` previews what would be deleted\n- Interactive confirmation prompt (skip with `-y`)\n- Lists each engram to be deleted before proceeding\n\n---\n\n## Remote Sync (Push / Pull / Fetch)\n\nEngram refs sync alongside code via standard Git refspecs.\n\n### Push\n\n**Command:** `engram push [remote] [--dry-run]`\n\n- Pushes `refs/engrams/*` to the remote\n- Auto-configures refspecs on the remote if missing\n- Push refspec: `refs/engrams/*:refs/engrams/*`\n\n### Pull\n\n**Command:** `engram pull [remote]`\n\n- Fetches engram refs from the remote\n- Automatically rebuilds the search index if new refs were fetched\n\n### Fetch\n\n**Command:** `engram fetch [remote] [--dry-run]`\n\n- Fetches engram refs without rebuilding the index\n- Fetch refspec: `+refs/engrams/*:refs/engrams/*` (force flag)\n\n### Refspec Management\n\n- `ensure_refspecs(repo, remote)` -- idempotent, adds engram refspecs to a specific remote\n- `ensure_all_refspecs(repo)` -- configures all remotes in the repository\n- Additive only (never removes existing refspecs)\n- Configured automatically during `engram init`\n\n---\n\n## Git Hooks Integration\n\nInstalled automatically by `engram init`. Existing hooks are preserved via `.pre-engram` backups and chained.\n\n### prepare-commit-msg\n\nDuring an active recording session, injects trailers into commit messages:\n\n```\nEngram-Id: <32-char-id>\nEngram-Agent: <agent-name>/<model>\nEngram-Tokens: <total-tokens>\nEngram-Cost: $<cost>\n```\n\nIdempotent: skips injection if `Engram-Id:` is already present.\n\n### post-commit\n\nRecords the new commit SHA to the active session file (`.git/engram-session`).\n\n### Session Locking\n\n- Active sessions stored as JSON in `.git/engram-session`\n- `fs2` advisory file locking for concurrent commit safety\n- Exclusive locks for writes, shared locks for reads\n\n### Hook Safety\n\n- Hooks fail silently to never break the git workflow\n- Unknown hook names are ignored with a debug log\n- Installation backs up existing hooks; uninstallation restores originals\n\n---\n\n## MCP Server\n\n**Command:** `engram mcp`\n\nStarts a Model Context Protocol server on stdio transport, exposing engram data to AI agents (e.g., Claude Desktop, Claude Code).\n\n**Implementation:** `engram-mcp` crate using `rmcp` v0.15 with `schemars` v1 for JSON schema generation. Stores `PathBuf` instead of `git2::Repository` because `Repository` is `!Send` and rmcp requires `Send + Sync + 'static`. Each tool opens the repo fresh per request.\n\n### Tools\n\n| Tool | Parameters | Description |\n|------|-----------|-------------|\n| `engram_search` | `query`, `limit?` (default: 10) | Full-text search across intent, transcript, files, dead ends |\n| `engram_show` | `id` (or \"HEAD\") | Full engram details: manifest, intent, file changes, dead ends, decisions |\n| `engram_log` | `limit?` (default: 10), `by_agent?` | List recent engrams with tokens and cost |\n| `engram_trace` | `file_path` | Chronological reasoning history for a file |\n| `engram_diff` | `id_a`, `id_b` | Compare two engrams (files, tokens, cost) |\n| `engram_dead_ends` | `id?`, `query?` | Surface rejected approaches from one or all engrams |\n\n### Configuration (Claude Desktop)\n\n```json\n{\n  \"mcpServers\": {\n    \"engram\": {\n      \"command\": \"engram\",\n      \"args\": [\"mcp\"]\n    }\n  }\n}\n```\n\n---\n\n## SDK Integration\n\nThree SDKs with identical fluent APIs for programmatic engram creation.\n\n### Rust SDK\n\n**Crate:** `engram-sdk`\n\n```rust\nuse engram_sdk::EngramSession;\n\nlet mut session = EngramSession::begin(\"my-agent\", Some(\"claude-sonnet-4-5\"));\n```\n\n**Session lifecycle methods** (all return `&mut Self` for chaining):\n\n| Method | Description |\n|--------|-------------|\n| `log_message(role, content)` | Log conversation message (first user message auto-captured as original_request) |\n| `log_tool_call(name, input, output?)` | Log tool invocation (parses JSON input) |\n| `log_file_change(path, change_type)` | Track file modification (created/modified/deleted) |\n| `log_shell_command(cmd, exit_code?, duration?)` | Log shell command execution |\n| `log_rejection(approach, reason)` | Record rejected approach (dead end) |\n| `log_decision(description, rationale)` | Record architectural decision |\n| `add_tokens(input, output, cost?)` | Accumulate token usage (additive across calls) |\n| `set_summary(summary)` | Set session summary |\n| `tag(tag)` | Add a tag |\n| `parent(parent_id)` | Link to parent engram |\n| `agent_version(version)` | Set agent version |\n\n**Finalization:**\n\n| Method | Description |\n|--------|-------------|\n| `commit(git_sha?, summary?)` | Auto-discovers repo, stores engram, returns `EngramId` |\n| `commit_to(storage, git_sha?, summary?)` | Stores to a specific `GitStorage` instance |\n| `build(git_sha?, summary?)` | Builds `EngramData` without storing (for testing) |\n\n**Re-exports:** `AgentInfo`, `CaptureMode`, `EngramData`, `EngramId`, `FileChange`, `FileChangeType`, `GitStorage`, `Manifest`, `TokenUsage`\n\n### Python SDK\n\n**Package:** `engram` (requires pygit2 >= 1.14, Python >= 3.9)\n\n```python\nfrom engram import EngramSession\n\nwith EngramSession(\"my-agent\", \"claude-sonnet-4-5\") as session:\n    session.log_message(\"user\", \"Add OAuth2 authentication\")\n    # Auto-commits on context manager exit\n```\n\n**API parity with Rust SDK**, plus:\n- Context manager support (sync and async via `__aenter__` / `__aexit__`)\n- Auto-commit on successful context manager exit\n- `build()` and `commit()` methods\n- `GitStorage` with `open()`, `discover()`, `create()`, `read()`, `read_manifest()`, `list()`, `delete()`\n- Full data model classes matching Rust types (`Manifest`, `Intent`, `Transcript`, `Operations`, `Lineage`, `EngramData`)\n\n**Tests:** 10 tests covering model serialization, session lifecycle, token accumulation, and Git round-trips.\n\n### TypeScript SDK\n\n**Package:** `@engram/sdk` (requires Node.js >= 18, uses `git` CLI via `execFileSync`)\n\n```typescript\nimport { EngramSession } from '@engram/sdk';\n\nconst session = EngramSession.begin('my-agent', 'claude-sonnet-4-5');\nsession.logMessage('user', 'Add OAuth2 authentication');\nconst id = session.commit('abc123', 'Implemented OAuth2');\n```\n\n**API parity with Rust SDK**, with camelCase naming convention:\n- `logMessage()`, `logToolCall()`, `logFileChange()`, `logShellCommand()`\n- `logRejection()`, `logDecision()`, `addTokens()`, `setSummary()`, `tag()`, `parent()`\n- `build()` and `commit()` methods\n- `GitStorage` with `open()`, `discover()`, `create()`, `read()`, `readManifest()`, `list()`, `delete()`\n- Dual ESM/CJS build via tsup with TypeScript declarations\n\n**Tests:** 7 tests covering model helpers, session lifecycle, token accumulation, and Git round-trips.\n\n### Cross-SDK Compatibility\n\n| Aspect | Rust | Python | TypeScript |\n|--------|------|--------|------------|\n| Git library | git2 (vendored libgit2) | pygit2 (direct binding) | Git CLI (execFileSync) |\n| ID generation | uuid crate | uuid4().hex | crypto.randomUUID() |\n| Ref layout | `refs/engrams/<ab>/<id>` | Same | Same |\n| Object model | 5 blobs + tree + orphan commit | Same | Same |\n| Serialization | serde | dataclasses + dict | TypeScript interfaces |\n| Enum format | snake_case (canonical) | snake_case | snake_case |\n\n---\n\n## CLI Reference\n\nAll commands support `--format json` for machine-readable output and `-v` / `-vv` / `-vvv` for verbosity.\n\n| Command | Description | Key flags |\n|---------|-------------|-----------|\n| `init` | Initialize engram in a Git repository | `--force`, `--remote` |\n| `record` | Record an agent session via PTY wrapper | `--agent`, `--model`, `-- <cmd>` |\n| `import` | Import from Claude Code or Aider | `--format`, `--auto-detect`, `--dry-run` |\n| `log` | List engrams (most recent first) | `--cost`, `-n`, `--agent`, `--by-agent` |\n| `show` | Show details of a specific engram | `--intent`, `--transcript`, `--operations` |\n| `search` | Full-text search across engrams | `-n` |\n| `trace` | Reasoning history for a file | |\n| `diff` | Compare two engrams | |\n| `graph` | Context graph (text or DOT) | `--depth`, `--dot` |\n| `review` | Intent chain for a branch range | |\n| `pr-summary` | Generate PR description from engram chain | `--format` |\n| `mcp` | Start MCP server (stdio) | |\n| `stats` | Aggregate statistics | |\n| `blame` | Reasoning blame for a file | `-n` |\n| `gc` | Garbage collect old engrams | `--older-than`, `--dry-run`, `-y` |\n| `push` | Push engram refs to remote | `--dry-run` |\n| `pull` | Pull engram refs and reindex | |\n| `fetch` | Fetch engram refs (no reindex) | `--dry-run` |\n| `reindex` | Rebuild the search index | |\n| `version` | Print version | |\n| `hook-handler` | *(hidden)* Internal git hook callback | |\n\n**Output formats:** `text` (default), `json`, `markdown`\n\n---\n\n## Architecture and Design\n\n### Workspace Layout\n\n```\ncrates/\n  engram-core/       Data model, Git storage engine, hooks, config\n  engram-capture/    PTY wrapper, file change detection, session importers\n  engram-query/      Tantivy search index, context graph, branch review\n  engram-protocol/   Push/pull/fetch via Git refspecs\n  engram-sdk/        Fluent Rust SDK for direct agent integration\n  engram-mcp/        MCP server for AI agent integration (rmcp)\n  engram-cli/        CLI binary (installed as `engram`)\nsdks/\n  python/            Python SDK (pygit2)\n  typescript/        TypeScript SDK (git CLI)\n```\n\n### Design Principles\n\n| Principle | Implementation |\n|-----------|---------------|\n| Git-native | Engrams are Git objects (blobs, trees, commits, refs). No external database. |\n| Zero config remotes | Engram refs sync via standard refspecs, configured automatically on `init`. |\n| Vendored dependencies | git2 with vendored libgit2 + OpenSSL. No system deps beyond a C compiler. |\n| No unsafe code | `unsafe_code = \"forbid\"` workspace-wide. |\n| Library-first | All functionality lives in library crates; the CLI is a thin wrapper. |\n| Cross-platform | File locking via `fs2`, Unix-specific code guarded by `#[cfg(unix)]`. |\n| Safe imports | SHA-256 content hashing prevents duplicate imports. |\n| Error strategy | `thiserror` in libraries, `anyhow` in the CLI. |\n| Observability | `tracing` crate, controlled via `-v` flags or `ENGRAM_LOG` env var. |\n\n### Dependencies\n\n| Category | Crate | Version |\n|----------|-------|---------|\n| Git | git2 (vendored) | 0.20 |\n| Serialization | serde, serde_json, chrono, uuid | 1.x, 1.x, 0.4, 1.x |\n| Search | tantivy | 0.22 |\n| CLI | clap (derive) | 4.5 |\n| PTY | portable-pty | 0.9 |\n| Hashing | sha2 | 0.10 |\n| File walking | ignore | 0.4 |\n| File locking | fs2 | 0.4 |\n| MCP | rmcp, tokio, schemars | 0.15, 1.x, 1.x |\n| Errors | thiserror, anyhow | 2.x, 1.x |\n| Tracing | tracing, tracing-subscriber | 0.1, 0.3 |\n\n### Test Coverage\n\n| Suite | Count |\n|-------|-------|\n| Rust (cargo test --workspace) | 54 |\n| Python (pytest) | 10 |\n| TypeScript (vitest) | 7 |\n| **Total** | **71** |\n\n### Requirements\n\n- Rust 1.80+ and a C compiler (for vendored libgit2/OpenSSL)\n- Python 3.9+ with pygit2 (for Python SDK)\n- Node.js 18+ (for TypeScript SDK)\n\n### License\n\nApache-2.0 OR MIT (dual-licensed)\n",
+        "file_path": "/Users/sjonas/engram/features.md"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:03:17.487Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && which engram && engram version",
+        "description": "Check if engram CLI is installed"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:03:24.419Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo install --path crates/engram-cli 2>&1",
+        "description": "Install engram CLI from source",
+        "timeout": 300000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:04:39.719Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram init 2>&1",
+        "description": "Initialize engram in this repo"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:04:50.998Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram log 2>&1",
+        "description": "List existing engrams"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:04:51.668Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram version 2>&1",
+        "description": "Check engram version"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:04:52.258Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram stats 2>&1",
+        "description": "Show engram stats"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:10.458Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram import --auto-detect 2>&1",
+        "description": "Auto-detect and import existing sessions",
+        "timeout": 30000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:23.031Z",
+      "tool_name": "Grep",
+      "input": {
+        "-n": true,
+        "output_mode": "content",
+        "path": "/Users/sjonas/engram/crates/engram-cli/src/commands/import.rs",
+        "pattern": "format"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:23.877Z",
+      "tool_name": "Grep",
+      "input": {
+        "-n": true,
+        "output_mode": "content",
+        "path": "/Users/sjonas/engram/crates/engram-cli/src/main.rs",
+        "pattern": "format|Format"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:29.182Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/import.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:29.585Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/main.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:35.877Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/import.rs",
+        "new_string": "    /// Format hint (claude-code or aider)\n    #[arg(long = \"import-format\", value_enum)]\n    pub import_format: Option<ImportFormat>,",
+        "old_string": "    /// Format hint\n    #[arg(long, value_enum)]\n    pub format: Option<ImportFormat>,",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:42.694Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/import.rs",
+        "new_string": "    let format = args.import_format.as_ref().ok_or_else(|| {\n        anyhow::anyhow!(\"Specify --import-format (claude-code or aider) or use --auto-detect\")\n    })?;",
+        "old_string": "    let format = args.format.as_ref().ok_or_else(|| {\n        anyhow::anyhow!(\"Specify --format (claude-code or aider) or use --auto-detect\")\n    })?;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:05:50.377Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo install --path crates/engram-cli 2>&1",
+        "description": "Rebuild engram CLI with the fix",
+        "timeout": 120000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:06:01.535Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram import --auto-detect 2>&1",
+        "description": "Auto-detect and import sessions",
+        "timeout": 30000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:06:10.951Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "ls -la \"$HOME/.claude/projects/-Users-sjonas-engram/\" 2>&1 | head -20",
+        "description": "Check for Claude Code session files"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:06:11.771Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test --workspace 2>&1",
+        "description": "Run full test suite",
+        "timeout": 120000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:06:22.053Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "ls \"$HOME/.claude/projects/\" 2>&1 | head -20",
+        "description": "List Claude Code project directories"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:06:58.572Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram import \"$HOME/.claude/projects/-Users-sjonas-engram/59da23cc-bd75-440c-b818-fd24a73c491a.jsonl\" --import-format claude-code 2>&1",
+        "description": "Import current Claude Code session",
+        "timeout": 30000
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:08.302Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram log --cost 2>&1",
+        "description": "List engrams with cost info"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:09.198Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram show HEAD --intent 2>&1",
+        "description": "Show intent of the imported engram"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:26.190Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram search \"features\" 2>&1",
+        "description": "Search engrams for \"features\""
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:27.531Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram trace features.md 2>&1",
+        "description": "Trace reasoning history for features.md"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:28.729Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram stats 2>&1",
+        "description": "Show aggregate statistics"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:41.888Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram show HEAD 2>&1",
+        "description": "Show full engram details"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:50.321Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram blame features.md 2>&1",
+        "description": "Reasoning blame for features.md"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:07:50.978Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram graph 2>&1",
+        "description": "Show context graph"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:08:03.084Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram import --auto-detect --dry-run 2>&1",
+        "description": "Test dedup on re-import"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-02-16T14:08:04.109Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && engram import \"$HOME/.claude/projects/-Users-sjonas-engram/59da23cc-bd75-440c-b818-fd24a73c491a.jsonl\" --import-format claude-code 2>&1",
+        "description": "Test duplicate detection on re-import"
+      },
+      "is_error": false
+    }
+  ],
+  "file_changes": [
+    {
+      "path": "/Users/sjonas/engram/features.md",
+      "change_type": "created"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-cli/src/commands/import.rs",
+      "change_type": "modified"
+    }
+  ]
+}
