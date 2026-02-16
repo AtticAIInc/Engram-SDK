@@ -8,7 +8,6 @@ use engram_core::hooks;
 use engram_core::hooks::ActiveSession;
 use engram_core::model::AgentInfo;
 use engram_core::storage::GitStorage;
-use engram_protocol::{push_engrams, SyncOptions};
 use engram_query::search::SearchEngine;
 
 #[derive(Args)]
@@ -199,7 +198,14 @@ fn maybe_auto_capture_cleanup(storage: &GitStorage, git_dir: &std::path::Path) {
 }
 
 /// If push_on_push is enabled, automatically push engram refs alongside code.
+/// Uses the git CLI instead of libgit2 so it inherits the user's credential helpers.
+/// Sets ENGRAM_PUSHING=1 to prevent recursive hook invocation.
 fn maybe_auto_push(storage: &GitStorage) {
+    // Guard against recursive invocation: our `git push` triggers pre-push again
+    if std::env::var_os("ENGRAM_PUSHING").is_some() {
+        return;
+    }
+
     let config = match load_config(storage) {
         Some(c) => c,
         None => return,
@@ -209,18 +215,32 @@ fn maybe_auto_push(storage: &GitStorage) {
         return;
     }
 
-    let opts = SyncOptions::default();
-    match push_engrams(storage.repo(), "origin", &opts) {
-        Ok(result) => {
-            if result.refs_pushed > 0 {
-                eprintln!(
-                    "engram: pushed {} engram ref(s) to {}",
-                    result.refs_pushed, result.remote
-                );
+    let workdir = match storage.workdir() {
+        Some(w) => w.to_path_buf(),
+        None => return,
+    };
+
+    match std::process::Command::new("git")
+        .args(["push", "origin", "refs/engrams/*:refs/engrams/*"])
+        .env("ENGRAM_PUSHING", "1")
+        .current_dir(&workdir)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let pushed = stderr.lines().filter(|l| l.contains("->")).count();
+            if pushed > 0 {
+                eprintln!("engram: pushed {pushed} engram ref(s) to origin");
             }
         }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            tracing::debug!("Auto-push: git push failed: {stderr}");
+        }
         Err(e) => {
-            tracing::debug!("Auto-push: failed to push engrams: {e}");
+            tracing::debug!("Auto-push: failed to run git: {e}");
         }
     }
 }
