@@ -14,6 +14,16 @@ pub fn extract_insights(raw_output: &[u8]) -> ExtractedInsights {
         if trimmed.is_empty() || trimmed.len() < 10 {
             continue;
         }
+        // Skip lines that look like markdown formatting, code, or structured content
+        if trimmed.starts_with('#')
+            || trimmed.starts_with('|')
+            || trimmed.starts_with("```")
+            || trimmed.starts_with("- **")
+            || trimmed.starts_with("**")
+            || trimmed.contains("](")
+        {
+            continue;
+        }
         let lower = trimmed.to_lowercase();
 
         // Dead end patterns
@@ -66,18 +76,20 @@ fn try_extract_dead_end(lower: &str, original: &str) -> Option<DeadEnd> {
         }
     }
 
-    // Pattern: "X didn't work because Y"
-    if let Some(pos) = lower.find(" didn't work") {
-        let approach = &original[..pos];
-        let reason = lower
-            .get((pos + " didn't work".len())..)
-            .and_then(|r| r.strip_prefix(" because ").or(r.strip_prefix(": ")))
-            .unwrap_or("did not work as expected");
-        if !approach.is_empty() && approach.len() < 80 {
-            return Some(DeadEnd {
-                approach: approach.trim().to_string(),
-                reason: reason.trim().to_string(),
-            });
+    // Pattern: "X didn't work because Y" (short lines only to avoid matching prose)
+    if original.len() < 120 {
+        if let Some(pos) = lower.find(" didn't work") {
+            let approach = &original[..pos];
+            let reason = lower
+                .get((pos + " didn't work".len())..)
+                .and_then(|r| r.strip_prefix(" because ").or(r.strip_prefix(": ")))
+                .unwrap_or("did not work as expected");
+            if !approach.is_empty() && approach.len() < 80 {
+                return Some(DeadEnd {
+                    approach: approach.trim().to_string(),
+                    reason: reason.trim().to_string(),
+                });
+            }
         }
     }
 

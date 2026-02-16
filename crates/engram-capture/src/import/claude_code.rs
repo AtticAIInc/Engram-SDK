@@ -101,6 +101,8 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
     let mut tool_calls = Vec::new();
     let mut file_changes = Vec::new();
     let mut original_request = String::new();
+    let mut reasoning_text = String::new(); // Collect assistant text for insight extraction
+    let mut first_assistant_text: Option<String> = None; // For interpreted_goal
 
     // Parse all lines
     for line in content.lines() {
@@ -169,6 +171,13 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
                 if role == Role::User && original_request.is_empty() {
                     original_request = text.clone();
                 }
+                if role == Role::Assistant {
+                    reasoning_text.push_str(text);
+                    reasoning_text.push('\n');
+                    if first_assistant_text.is_none() && !text.trim().is_empty() {
+                        first_assistant_text = Some(text.clone());
+                    }
+                }
                 transcript_entries.push(TranscriptEntry {
                     timestamp: ts.unwrap_or_else(Utc::now),
                     role,
@@ -190,6 +199,13 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
 
                             if role == Role::User && original_request.is_empty() {
                                 original_request = text.clone();
+                            }
+                            if role == Role::Assistant {
+                                reasoning_text.push_str(&text);
+                                reasoning_text.push('\n');
+                                if first_assistant_text.is_none() && !text.trim().is_empty() {
+                                    first_assistant_text = Some(text.clone());
+                                }
                             }
 
                             transcript_entries.push(TranscriptEntry {
@@ -289,6 +305,8 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
                                 .unwrap_or("")
                                 .to_string();
                             if !text.is_empty() {
+                                reasoning_text.push_str(&text);
+                                reasoning_text.push('\n');
                                 transcript_entries.push(TranscriptEntry {
                                     timestamp: ts.unwrap_or_else(Utc::now),
                                     role: role.clone(),
@@ -350,16 +368,30 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
         source_hash: None,
     };
 
+    // Extract dead ends and decisions from reasoning text
+    let insights =
+        crate::session::extractor::extract_insights(reasoning_text.as_bytes());
+
+    // Derive interpreted_goal from the first assistant response (truncated)
+    let interpreted_goal = first_assistant_text.map(|t| {
+        let trimmed = t.trim();
+        if trimmed.len() > 200 {
+            format!("{}...", &trimmed[..200])
+        } else {
+            trimmed.to_string()
+        }
+    });
+
     let intent = Intent {
         original_request: if original_request.is_empty() {
             "Imported Claude Code session".into()
         } else {
             original_request
         },
-        interpreted_goal: None,
+        interpreted_goal,
         summary: manifest.summary.clone(),
-        dead_ends: Vec::new(),
-        decisions: Vec::new(),
+        dead_ends: insights.dead_ends,
+        decisions: insights.decisions,
     };
 
     let operations = Operations {
