@@ -1,0 +1,23 @@
+{
+  "id": "86ba7ea748ed4658baffe556902c5dee",
+  "version": 1,
+  "created_at": "2026-02-16T13:57:57.718Z",
+  "finished_at": "2026-02-16T14:43:35.626Z",
+  "agent": {
+    "name": "claude-code",
+    "model": "claude-opus-4-6"
+  },
+  "git_commits": [
+    "f286cff7ed908c77ee0821d28cdb538fa104ab14"
+  ],
+  "token_usage": {
+    "input_tokens": 1241,
+    "output_tokens": 12098,
+    "cache_read_tokens": 29154244,
+    "cache_write_tokens": 544123,
+    "total_tokens": 29711706
+  },
+  "summary": "please review the entire codebase and then from the results of the analysis please create a features...",
+  "capture_mode": "import",
+  "source_hash": "8d45045cf14693a05d2e23029d9e389dd92cf22ee39c8ff8a7f1e21925ec6728"
+}
