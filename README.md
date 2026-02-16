@@ -6,6 +6,8 @@ Git commits capture *what* changed but discard *why*. When AI agents code, the r
 
 Each **engram** is a discrete unit of reasoning memory: the full session transcript, human intent, agent decisions, tool calls, dead ends explored, and token economics -- linked to the Git commits it produced.
 
+For Full Documentation and Guides, Visit: https://the-attic-ai.gitbook.io/untitled/
+
 ## Quick Start
 
 ```bash
