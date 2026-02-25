@@ -1,3 +1,4 @@
+use std::io::Read as _;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -46,12 +47,88 @@ pub fn run(args: &HookHandlerArgs) -> Result<()> {
         "pre-push" => {
             maybe_auto_push(&storage);
         }
+        "session-end" => {
+            handle_session_end(&storage);
+        }
         other => {
             tracing::debug!("Unknown hook: {other}, ignoring");
         }
     }
 
     Ok(())
+}
+
+/// Handle Claude Code's `SessionEnd` hook.
+///
+/// Reads JSON from stdin (provided by Claude Code), extracts the `transcript_path`,
+/// and imports the session as an engram. All errors are logged at debug level and
+/// silently ignored so we never interfere with the user's workflow.
+fn handle_session_end(storage: &GitStorage) {
+    let mut input = String::new();
+    if std::io::stdin().read_to_string(&mut input).is_err() {
+        tracing::debug!("session-end: failed to read stdin");
+        return;
+    }
+
+    let json: serde_json::Value = match serde_json::from_str(&input) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::debug!("session-end: failed to parse JSON: {e}");
+            return;
+        }
+    };
+
+    let transcript_path = match json.get("transcript_path").and_then(|v| v.as_str()) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => {
+            tracing::debug!("session-end: no transcript_path in input");
+            return;
+        }
+    };
+
+    if !transcript_path.exists() {
+        tracing::debug!(
+            "session-end: transcript file does not exist: {}",
+            transcript_path.display()
+        );
+        return;
+    }
+
+    let data = match ClaudeCodeImporter::import_session(&transcript_path) {
+        Ok(d) => d,
+        Err(e) => {
+            tracing::debug!("session-end: failed to import session: {e}");
+            return;
+        }
+    };
+
+    // Check for duplicates via source_hash
+    if let Some(existing_id) = data
+        .manifest
+        .source_hash
+        .as_deref()
+        .and_then(|h| storage.find_by_source_hash(h))
+    {
+        tracing::debug!(
+            "session-end: already imported as {}",
+            &existing_id.as_str()[..8]
+        );
+        return;
+    }
+
+    let id = data.manifest.id.clone();
+    match storage.create(&data) {
+        Ok(_) => {
+            // Best-effort index update
+            if let Ok(engine) = SearchEngine::open(storage) {
+                let _ = engine.index_engram(&data);
+            }
+            tracing::debug!("session-end: imported engram {}", &id.as_str()[..8]);
+        }
+        Err(e) => {
+            tracing::debug!("session-end: failed to store engram: {e}");
+        }
+    }
 }
 
 /// If auto_capture is enabled and no active session exists, discover and import

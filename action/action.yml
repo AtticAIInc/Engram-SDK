@@ -1,0 +1,81 @@
+name: 'Engram PR Summary'
+description: 'Post AI reasoning summaries on pull requests using Engram'
+author: 'AtticAI Inc.'
+branding:
+  icon: 'cpu'
+  color: 'purple'
+
+inputs:
+  version:
+    description: 'Engram CLI version to install (e.g., "v0.1.0" or "latest")'
+    required: false
+    default: 'latest'
+  github-token:
+    description: 'GitHub token for posting PR comments'
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Fetch engram refs
+      shell: bash
+      run: git fetch origin '+refs/engrams/*:refs/engrams/*' 2>/dev/null || true
+
+    - name: Install engram
+      shell: bash
+      run: bash "${{ github.action_path }}/install.sh"
+      env:
+        ENGRAM_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Initialize engram
+      shell: bash
+      run: engram init 2>/dev/null || true
+
+    - name: Generate PR summary
+      id: summary
+      shell: bash
+      run: |
+        BASE="${{ github.event.pull_request.base.sha }}"
+        HEAD="${{ github.event.pull_request.head.sha }}"
+        RANGE="${BASE}..${HEAD}"
+
+        OUTPUT=$(engram pr-summary "$RANGE" --format markdown 2>&1) || true
+
+        if [ -z "$OUTPUT" ] || echo "$OUTPUT" | grep -qi "no engrams found"; then
+          echo "has_summary=false" >> "$GITHUB_OUTPUT"
+        else
+          # Write multiline output using a random delimiter
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          {
+            echo "has_summary=true"
+            echo "body<<$EOF"
+            echo "$OUTPUT"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Post PR summary comment
+      if: steps.summary.outputs.has_summary == 'true'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: engram-pr-summary
+        message: ${{ steps.summary.outputs.body }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+
+    - name: Post no-data comment
+      if: steps.summary.outputs.has_summary == 'false'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: engram-pr-summary
+        message: |
+          **Engram:** No reasoning data found for this PR.
+
+          To capture AI reasoning, use one of:
+          - `engram init --claude-code` for automatic Claude Code session capture
+          - `engram record -- <agent-command>` to record agent sessions
+          - `engram import --auto-detect` to import existing sessions
+
+          [Learn more](https://github.com/AtticAIInc/Engram-SDK)
+        GITHUB_TOKEN: ${{ inputs.github-token }}
