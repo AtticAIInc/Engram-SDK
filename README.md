@@ -16,8 +16,8 @@ git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo install --path crates/engram-cli
 
-# Initialize in your repo
-engram init
+# Initialize in your repo (with automatic Claude Code capture)
+engram init --claude-code
 
 # Record an agent session (wraps any agent command in a PTY)
 engram record -- claude "add OAuth2 authentication"
@@ -148,6 +148,42 @@ engram pull              # Fetch engram refs and reindex
 engram fetch             # Fetch only (no reindex)
 ```
 
+## Claude Code Auto-Capture
+
+Automatically capture every Claude Code session as an engram -- zero ongoing effort:
+
+```bash
+engram init --claude-code
+```
+
+This installs a `SessionEnd` hook in `.claude/settings.json` that fires when Claude Code exits. The hook reads the session transcript and imports it as an engram with full deduplication. Works on both fresh repos and repos already initialized with engram.
+
+## GitHub Action
+
+Post AI reasoning summaries on every pull request:
+
+```yaml
+name: Engram PR Summary
+on:
+  pull_request:
+    types: [opened, synchronize]
+permissions:
+  pull-requests: write
+  contents: read
+jobs:
+  engram:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: AtticAIInc/Engram-SDK@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The action fetches engram refs, runs `engram pr-summary`, and posts a sticky comment with the reasoning chain, files changed, dead ends explored, and token economics. If no engrams are found, it posts a helpful onboarding message instead.
+
 ## Git Hooks Integration
 
 When you run `engram init`, git hooks are automatically installed:
@@ -272,7 +308,7 @@ Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Applicat
 
 | Command       | Description |
 |---------------|-------------|
-| `init`        | Initialize engram in a Git repository (`--remote`, `--force`) |
+| `init`        | Initialize engram in a Git repository (`--remote`, `--force`, `--claude-code`) |
 | `record`      | Record an agent session via PTY wrapper (`--agent`, `--model`) |
 | `import`      | Import sessions from Claude Code or Aider (with dedup) |
 | `log`         | List engrams (most recent first) (`--cost`, `--by-agent`) |
@@ -329,7 +365,7 @@ git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo build --workspace
 
-# Run tests (118 Rust + 10 Python + 7 TypeScript = 135 total)
+# Run tests (124 Rust + 10 Python + 7 TypeScript = 141 total)
 cargo test --workspace
 cd sdks/python && python3 -m pytest tests/
 cd sdks/typescript && npx vitest run
