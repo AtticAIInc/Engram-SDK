@@ -66,10 +66,16 @@ cd your-project
 engram init
 ```
 
-This sets up:
-- Git hooks for automatic session tracking (`prepare-commit-msg`, `post-commit`)
+This sets up everything automatically:
+- Git hooks (`prepare-commit-msg`, `post-commit`, `pre-push`) for commit trailers and auto-push
+- Claude Code `SessionEnd` hook for auto-importing sessions on exit
+- Auto-capture of agent sessions on commit
+- Auto-push of engram refs when you `git push`
 - Refspecs for syncing engram refs with remotes
+- Git notes alias (`git loge`) for viewing reasoning on commits
 - Search index directory at `.git/engram-index/`
+
+All features are enabled by default. Opt out with `--no-auto-capture`, `--no-auto-push`, or `--no-claude-code`.
 
 ## Next Steps
 

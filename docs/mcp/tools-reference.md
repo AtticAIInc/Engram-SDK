@@ -1,5 +1,7 @@
 # MCP Tools Reference
 
+The engram MCP server exposes 8 tools for querying reasoning history.
+
 ## engram_search
 
 Full-text search across intent, transcript, file paths, and dead ends.
@@ -166,3 +168,62 @@ Both parameters are optional. If neither is provided, returns dead ends from the
 ### Returns
 
 List of dead ends (approach + reason) and decisions (description + rationale), grouped by engram.
+
+---
+
+## engram_why
+
+Explain why a file exists through its full reasoning chain.
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `file_path` | string | Yes | | File path to explain |
+| `limit` | number | No | 20 | Maximum number of engrams to include |
+
+### Example
+
+```json
+{
+  "file_path": "src/auth.rs"
+}
+```
+
+### Returns
+
+Rich narrative for each engram that touched the file: what was requested, what goal was interpreted, what was accomplished, what was tried and rejected, and what decisions were made.
+
+---
+
+## engram_stats
+
+Show aggregate statistics across all engrams.
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `by_file` | boolean | No | false | Show cost breakdown by file |
+| `by_branch` | boolean | No | false | Show cost breakdown by branch |
+| `trend` | boolean | No | false | Show daily cost trend (last 30 days) |
+| `top` | number | No | all | Limit breakdown to top N entries |
+
+### Examples
+
+```json
+{
+  "by_file": true,
+  "top": 10
+}
+```
+
+```json
+{
+  "trend": true
+}
+```
+
+### Returns
+
+Aggregate statistics including total engrams, breakdown by agent/mode, total tokens, estimated cost, and date range. When breakdowns are requested, returns sorted lists of files, branches, or daily totals.

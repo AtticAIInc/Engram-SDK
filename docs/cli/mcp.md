@@ -16,7 +16,7 @@ The server auto-initializes engram if not already set up.
 
 ### Available Tools
 
-The MCP server provides 6 tools:
+The MCP server provides 8 tools:
 
 | Tool | Description |
 |------|-------------|
@@ -26,6 +26,8 @@ The MCP server provides 6 tools:
 | `engram_trace` | File reasoning history |
 | `engram_diff` | Compare two engrams |
 | `engram_dead_ends` | Surface rejected approaches |
+| `engram_why` | Explain why a file exists through its reasoning chain |
+| `engram_stats` | Aggregate statistics by file, branch, or trend |
 
 ## Examples
 

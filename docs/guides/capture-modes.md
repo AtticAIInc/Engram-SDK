@@ -1,8 +1,40 @@
 # Capture Modes
 
-Engram supports three ways to capture agent reasoning, each suited to different workflows.
+Engram supports four ways to capture agent reasoning, each suited to different workflows.
 
-## Mode 1: Wrapper (PTY)
+## Mode 1: Automatic (Claude Code)
+
+The simplest mode -- just run `engram init` and use Claude Code normally.
+
+```bash
+engram init   # Enables all automation by default
+```
+
+### How It Works
+
+1. When Claude Code exits, the `SessionEnd` hook fires and auto-imports the session
+2. When you commit, the `prepare-commit-msg` hook auto-captures the most recent session and injects trailers
+3. The `post-commit` hook links the commit SHA to the engram
+4. Git notes with reasoning metadata are auto-attached to commits
+5. When you `git push`, engram refs auto-sync to the remote
+
+### Strengths
+
+- **Zero ongoing effort** -- just use Claude Code normally
+- Structured data (token usage, tool calls) from Claude Code JSONL
+- Full deduplication via SHA-256 content hashing
+- Commits automatically carry trailers and git notes with reasoning
+
+### Limitations
+
+- Only works with Claude Code (other agents need Wrapper or Import mode)
+- Dead-end/decision extraction is heuristic
+
+### When to Use
+
+Use automatic mode whenever you use Claude Code. This is the recommended default.
+
+## Mode 2: Wrapper (PTY)
 
 Wrap any agent command in a pseudo-terminal to capture its session.
 
@@ -38,7 +70,7 @@ engram record -- cursor-cli "fix the bug"
 
 Use wrapper mode when you want to capture sessions from agents you don't control and can't modify.
 
-## Mode 2: Import
+## Mode 3: Import
 
 Parse existing session files from Claude Code or Aider.
 
@@ -79,7 +111,7 @@ engram import .aider.chat.history.md --format aider
 
 Use import mode to capture reasoning from past sessions, especially when you first install engram in an existing project.
 
-## Mode 3: SDK
+## Mode 4: SDK
 
 Integrate engram directly into your agent code.
 
@@ -111,22 +143,24 @@ Use SDK mode when you control the agent code and want the richest possible reaso
 
 ## Comparison
 
-| | Wrapper | Import | SDK |
-|---|---------|--------|-----|
-| Integration effort | None | None | Moderate |
-| Token usage | No | Yes (Claude Code) | Yes |
-| Structured tool calls | No | Yes (Claude Code) | Yes |
-| Explicit dead ends | Heuristic | Heuristic | Explicit |
-| Works with any agent | Yes | Claude Code, Aider | Your agent |
-| Past sessions | No | Yes | No |
+| | Automatic | Wrapper | Import | SDK |
+|---|-----------|---------|--------|-----|
+| Integration effort | None | None | None | Moderate |
+| Token usage | Yes | No | Yes (Claude Code) | Yes |
+| Structured tool calls | Yes | No | Yes (Claude Code) | Yes |
+| Explicit dead ends | Heuristic | Heuristic | Heuristic | Explicit |
+| Git notes/trailers | Automatic | Via session | Manual annotate | Via session |
+| Works with | Claude Code | Any agent | Claude Code, Aider | Your agent |
+| Past sessions | No | No | Yes | No |
 
 ## Migration Path
 
 A common progression:
 
-1. **Start with Import** -- Get value immediately from existing Claude Code sessions
-2. **Add Wrapper** -- Capture new sessions from any agent
-3. **Move to SDK** -- When you want maximum data quality, integrate the SDK
+1. **Start with Automatic** -- Just `engram init` if you use Claude Code
+2. **Add Import** -- Get value from past sessions
+3. **Add Wrapper** -- Capture sessions from other agents
+4. **Move to SDK** -- When you want maximum data quality, integrate the SDK
 
 ## See Also
 

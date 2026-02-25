@@ -97,19 +97,35 @@ Engram commits are **orphan commits** -- they have no parent and are not on any 
 
 Engram maintains a `.git/engram-head` file that points to the most recently created engram, enabling fast `engram show HEAD` resolution without scanning all refs.
 
-## Three Capture Modes
+## Four Capture Modes
 
 | Mode | How It Works | Best For |
 |------|-------------|----------|
+| **Automatic** | `engram init` installs Claude Code hooks. Sessions auto-imported on exit and on commit. | Claude Code users (zero effort) |
 | **Wrapper** | `engram record -- <command>` spawns the agent in a PTY, captures output, detects file changes via SHA-256 snapshots | Any agent, zero integration effort |
 | **Import** | `engram import` parses existing session files (Claude Code JSONL, Aider markdown) | Retroactively capturing past sessions |
 | **SDK** | Call `EngramSession` API directly from your agent code | Maximum data quality and control |
 
 ### Choosing a Mode
 
-- **Start with Import** if you already use Claude Code or Aider -- get value immediately from existing sessions
+- **Use Automatic** if you use Claude Code -- just run `engram init` and everything works
+- **Start with Import** if you already have Claude Code or Aider sessions -- get value immediately from past sessions
 - **Use Wrapper** for agents that don't have SDK integration yet
 - **Use SDK** when you control the agent code and want the richest data (structured tool calls, explicit dead ends, accurate token counts)
+
+## Git Notes
+
+Engram attaches rich reasoning metadata to commits as [git notes](https://git-scm.com/docs/git-notes) under `refs/notes/engram`. Notes are automatically attached when:
+
+- The Claude Code `SessionEnd` hook fires (auto-annotate)
+- You run `engram init` (annotates existing linked commits)
+- You run `engram annotate` (manual, supports ranges and `--force`)
+
+View with `git loge` (alias installed by `engram init`) or `git log --notes=engram`.
+
+## Cost Estimation
+
+Even when agents don't report costs directly (e.g. Claude Code imports), engram estimates costs at display time using model name + token counts + built-in API pricing tables. Supports Claude, GPT-4, and o1/o3 model families with cache-aware pricing. Explicit cost data takes priority when available.
 
 ## Search Index
 
@@ -132,6 +148,6 @@ Explore with `engram graph` or export as Graphviz DOT format.
 
 ## Next Steps
 
-- [CLI Reference](../cli/README.md) -- All 21 commands
+- [CLI Reference](../cli/README.md) -- All 24 commands
 - [SDK Guides](../sdks/README.md) -- Integrate into your agent
 - [Architecture Deep Dive](../architecture/README.md) -- How it all works under the hood

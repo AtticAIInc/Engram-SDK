@@ -4,10 +4,10 @@
 
 | Suite | Count | Command |
 |-------|-------|---------|
-| Rust | 118 | `cargo test --workspace` |
+| Rust | 147 | `cargo test --workspace` |
 | Python | 10 | `cd sdks/python && python3 -m pytest tests/ -v` |
 | TypeScript | 7 | `cd sdks/typescript && npx vitest run` |
-| **Total** | **135** | |
+| **Total** | **164** | |
 
 ## Running Tests
 

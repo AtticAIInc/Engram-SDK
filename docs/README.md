@@ -27,31 +27,42 @@ def456 Fix middleware ordering bug
 789abc Refactor auth to use sessions
 ```
 
-**With Engram**, every commit carries its reasoning:
+**With Engram** (`git loge`), every commit carries its reasoning:
 ```
-abc123 Add OAuth2 with PKCE flow [claude-code/claude-sonnet-4-5] $0.23 47832tok
-  Intent: "Add OAuth2 authentication with PKCE for our SPA"
-  Dead ends: Tried passport.js (middleware conflict), considered Auth0
-             SDK (added 2MB to bundle, decided against).
+abc123 Add OAuth2 with PKCE flow
 
-def456 Fix middleware ordering bug
-  Intent: "The auth middleware runs after the rate limiter, causing 401s"
-  Related: Follows from abc123 (the original auth implementation)
+    Engram-Id: a1b2c3d4...
+    Engram-Agent: claude-code
+    Engram-Model: claude-sonnet-4-5
+    Engram-Tokens: 47832
+    Engram-Cost: $0.23
+
+Notes (engram):
+    [claude-code/claude-sonnet-4-5] $0.23 47832tok
+    Intent: "Add OAuth2 authentication with PKCE for our SPA"
+    Summary: Implemented OAuth2 with PKCE using custom middleware
+    Dead ends:
+      - passport.js: Middleware conflict with existing stack
+    Decisions:
+      - Custom middleware over Auth0 SDK: Auth0 added 2MB to bundle
+    Files: +auth.rs +oauth.rs ~api.rs
 ```
 
-## Three Ways to Capture
+## Four Ways to Capture
 
-1. **Wrapper** -- Wrap any agent command in a PTY. Zero agent cooperation needed.
+1. **Automatic** -- Just run `engram init` and use Claude Code. Sessions are auto-captured on exit and on commit.
+
+2. **Wrapper** -- Wrap any agent command in a PTY. Zero agent cooperation needed.
    ```bash
    engram record -- claude "add OAuth2 authentication"
    ```
 
-2. **Import** -- Parse existing sessions from Claude Code or Aider.
+3. **Import** -- Parse existing sessions from Claude Code or Aider.
    ```bash
    engram import --auto-detect
    ```
 
-3. **SDK** -- Integrate directly into your agent with Rust, Python, or TypeScript.
+4. **SDK** -- Integrate directly into your agent with Rust, Python, or TypeScript.
    ```python
    with EngramSession("my-agent", "claude-sonnet-4-5") as session:
        session.log_message("user", "Add OAuth2 authentication")
@@ -76,8 +87,8 @@ Engrams are stored as native Git objects -- they travel with `clone`, `push`, `p
 ## Get Started
 
 * [**Installation**](getting-started/README.md) -- Install from source in under a minute
-* [**Quick Start**](getting-started/quick-start.md) -- Record your first engram in 5 minutes
+* [**Quick Start**](getting-started/quick-start.md) -- Set up in 5 minutes
 * [**Core Concepts**](getting-started/core-concepts.md) -- Understand the mental model
-* [**CLI Reference**](cli/README.md) -- All 21 commands
+* [**CLI Reference**](cli/README.md) -- All 24 commands
 * [**SDK Guides**](sdks/README.md) -- Rust, Python, TypeScript
 * [**MCP Integration**](mcp/README.md) -- Connect AI agents to reasoning history

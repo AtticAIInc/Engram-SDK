@@ -1,6 +1,6 @@
 # CLI Overview
 
-The `engram` CLI provides 20 commands for capturing, querying, and syncing agent reasoning.
+The `engram` CLI provides 24 commands for capturing, querying, and syncing agent reasoning.
 
 ## Installation
 
@@ -23,7 +23,7 @@ These flags are available on all commands:
 
 | Command | Description |
 |---------|-------------|
-| [init](init.md) | Initialize engram in a Git repository |
+| [init](init.md) | Initialize engram with smart defaults (all automation ON) |
 | [record](record.md) | Record an agent session via PTY wrapper |
 | [import](import.md) | Import sessions from Claude Code or Aider |
 
@@ -35,10 +35,18 @@ These flags are available on all commands:
 | [show](show.md) | Show details of a specific engram |
 | [search](search.md) | Full-text search across engrams |
 | [trace](trace.md) | Show reasoning history for a file |
+| [why](why.md) | Explain why a file exists through its reasoning chain |
 | [diff](diff.md) | Compare two engrams |
 | [graph](graph.md) | Show the context graph |
 | [blame](blame.md) | Show reasoning blame for a file |
-| [stats](stats.md) | Show aggregate statistics |
+| [stats](stats.md) | Show aggregate statistics (by file, branch, trend) |
+| [dead-ends](dead-ends.md) | Surface rejected approaches (supports recurring detection) |
+
+### Annotations
+
+| Command | Description |
+|---------|-------------|
+| [annotate](annotate.md) | Attach engram reasoning as git notes to commits |
 
 ### Review
 
