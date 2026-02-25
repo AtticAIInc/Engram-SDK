@@ -1,6 +1,6 @@
 # CLI Overview
 
-The `engram` CLI provides 28 commands for capturing, querying, and syncing agent reasoning.
+The `engram` CLI provides 29 commands for capturing, querying, and syncing agent reasoning.
 
 ## Installation
 
@@ -24,6 +24,7 @@ These flags are available on all commands:
 | Command | Description |
 |---------|-------------|
 | [init](init.md) | Initialize engram with smart defaults (all automation ON) |
+| [config](config.md) | Manage global configuration (API keys, model overrides) |
 | [record](record.md) | Record an agent session via PTY wrapper |
 | [import](import.md) | Import sessions from Claude Code or Aider |
 

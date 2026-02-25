@@ -142,6 +142,6 @@ engram pull     # Fetch engram refs and reindex
 ## Next Steps
 
 - [Core Concepts](core-concepts.md) -- Understand engrams, components, and storage
-- [CLI Reference](../cli/README.md) -- All 24 commands in detail
+- [CLI Reference](../cli/README.md) -- All 29 commands in detail
 - [SDK Guides](../sdks/README.md) -- Integrate directly into your agent
 - [MCP Integration](../mcp/README.md) -- Connect AI agents to reasoning history

@@ -5,7 +5,7 @@ Import sessions from Claude Code or Aider.
 ## Usage
 
 ```bash
-engram import [path] [--import-format <format>] [--auto-detect] [--dry-run]
+engram import [path] [--import-format <format>] [--auto-detect] [--dry-run] [--no-summarize]
 ```
 
 ## Description
@@ -17,6 +17,8 @@ Parses existing AI agent session files and stores them as engrams. Supports:
 
 Duplicate detection via SHA-256 content hashing ensures re-importing the same file is safe.
 
+When an Anthropic API key is configured (via `engram config set anthropic_api_key` or `ANTHROPIC_API_KEY` env var), import automatically enriches each session with LLM-powered summarization — generating high-quality summaries, interpreted goals, dead ends, and architectural decisions from the full transcript.
+
 ## Flags
 
 | Flag | Type | Default | Description |
@@ -24,6 +26,7 @@ Duplicate detection via SHA-256 content hashing ensures re-importing the same fi
 | `--import-format <format>` | enum | auto | Format hint: `claude-code` or `aider` |
 | `--auto-detect` | bool | false | Auto-discover and import all sessions from known locations |
 | `--dry-run` | bool | false | Preview what would be imported without storing |
+| `--no-summarize` | bool | false | Skip LLM-powered summarization (use heuristic extraction only) |
 
 ## Arguments
 
@@ -49,6 +52,7 @@ engram import --auto-detect --dry-run
 
 ## See Also
 
+- [config](config.md) -- Set API key for LLM summarization
 - [Importing Sessions](../guides/importing-sessions.md)
 - [Capture Modes](../guides/capture-modes.md)
 - [record](record.md) -- Record new sessions instead of importing

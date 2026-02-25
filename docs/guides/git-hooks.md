@@ -43,8 +43,9 @@ When auto-push is enabled, automatically pushes engram refs alongside code. Uses
 Installed in `.claude/settings.json`. Fires when Claude Code exits a session:
 
 1. Reads the session transcript path from stdin JSON
-2. Imports the session as an engram (with deduplication)
-3. Auto-annotates recent commits with git notes containing reasoning metadata
+2. Runs LLM-powered summarization (if API key configured) for high-quality intent fields
+3. Imports the session as an engram (with deduplication)
+4. Auto-annotates recent commits with git notes containing reasoning metadata
 
 ## Hook Safety
 

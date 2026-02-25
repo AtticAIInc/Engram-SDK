@@ -11,6 +11,7 @@
 
 * [CLI Overview](cli/README.md)
 * [init](cli/init.md)
+* [config](cli/config.md)
 * [record](cli/record.md)
 * [import](cli/import.md)
 * [log](cli/log.md)

@@ -66,6 +66,45 @@ Aider stores chat history as Markdown:
 engram import .aider.chat.history.md --import-format aider
 ```
 
+## LLM-Powered Summarization
+
+When an Anthropic API key is configured, engram automatically sends a condensed version of each imported session to Claude Haiku to generate structured metadata:
+
+- **Summary** -- What was accomplished (1-2 sentences focused on outcomes)
+- **Interpreted goal** -- What the AI understood the user wanted and the strategy it used
+- **Dead ends** -- Approaches that were actually tried and abandoned, with reasons
+- **Decisions** -- Key architectural or design choices with rationale
+
+This produces significantly higher-quality intent fields compared to the default heuristic extraction.
+
+### Setup
+
+```bash
+# Store API key in global config (recommended)
+engram config set anthropic_api_key sk-ant-api03-...
+
+# Or set environment variable
+export ANTHROPIC_API_KEY=sk-ant-api03-...
+```
+
+### Override Model
+
+By default, summarization uses `claude-haiku-4-5-20251001` for cost efficiency. To use a different model:
+
+```bash
+engram config set summarize_model claude-sonnet-4-20250514
+```
+
+### Skip Summarization
+
+```bash
+engram import --auto-detect --no-summarize
+```
+
+### Fallback
+
+If no API key is set or the API call fails, engram silently falls back to heuristic extraction (pattern matching on "tried X but Y", "decided to X because Y", etc.). The import always succeeds regardless of API availability.
+
 ## Deduplication
 
 Every imported session gets a `source_hash` -- a SHA-256 hash of the source file content stored in the manifest. Before importing, engram checks if an engram with the same `source_hash` already exists.

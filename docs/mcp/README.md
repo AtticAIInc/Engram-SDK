@@ -23,9 +23,11 @@ MCP is a standard protocol for connecting AI agents to external tools and data s
 | `engram_trace` | Chronological reasoning history for a specific file |
 | `engram_diff` | Compare two engrams: common/unique files, token and cost deltas |
 | `engram_dead_ends` | Surface rejected approaches and architectural decisions |
+| `engram_why` | Explain why a file exists through its full reasoning chain |
+| `engram_stats` | Aggregate statistics with breakdowns by file, branch, or trend |
 
 ## Getting Started
 
 - [Setup](setup.md) -- Configure MCP for Claude Code and Claude Desktop
-- [Tools Reference](tools-reference.md) -- Detailed parameter reference for all 6 tools
+- [Tools Reference](tools-reference.md) -- Detailed parameter reference for all 8 tools
 - [Best Practices](best-practices.md) -- Usage patterns for AI agents

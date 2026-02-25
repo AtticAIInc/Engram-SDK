@@ -1,17 +1,19 @@
 # Architecture Overview
 
-Engram is organized as a Cargo workspace with 7 Rust crates, plus Python and TypeScript SDKs.
+Engram is organized as a Cargo workspace with 9 Rust crates, plus Python and TypeScript SDKs.
 
 ## Crate Structure
 
 ```
 crates/
   engram-core/       Core library: data model, Git storage engine, config, hooks
-  engram-capture/    PTY wrapper, file change detection, session importers
+  engram-capture/    PTY wrapper, file change detection, session importers, LLM summarization
   engram-query/      Tantivy search index, file tracing, engram diff, context graph
   engram-protocol/   Push/pull/fetch engram refs via Git refspecs
   engram-sdk/        Fluent Rust SDK for direct agent integration
   engram-mcp/        MCP server for AI agent integration (rmcp)
+  engram-dashboard/  Web dashboard (axum + embedded SPA)
+  engram-tui/        Interactive TUI (ratatui + crossterm)
   engram-cli/        CLI binary (installed as `engram`)
 sdks/
   python/            Python SDK (git CLI via subprocess)
@@ -23,11 +25,13 @@ sdks/
 ```
 engram-cli
   ├── engram-core
-  ├── engram-capture  → engram-core
-  ├── engram-query    → engram-core
-  ├── engram-protocol → engram-core
-  ├── engram-sdk      → engram-core
-  └── engram-mcp      → engram-core, engram-query
+  ├── engram-capture    → engram-core
+  ├── engram-query      → engram-core
+  ├── engram-protocol   → engram-core
+  ├── engram-sdk        → engram-core
+  ├── engram-mcp        → engram-core, engram-query
+  ├── engram-dashboard  → engram-core, engram-query
+  └── engram-tui        → engram-core, engram-query
 ```
 
 The CLI is a thin wrapper -- all functionality lives in library crates.
@@ -40,7 +44,7 @@ The foundation. Contains:
 
 - **Data model** (`src/model/`) -- `EngramId`, `Manifest`, `Intent`, `Transcript`, `Operations`, `Lineage`, `EngramData`
 - **Storage engine** (`src/storage/`) -- Git object creation, ref management, CRUD operations
-- **Config** (`src/config/`) -- `EngramConfig` stored in `.git/config` under `[engram]`
+- **Config** (`src/config/`) -- `EngramConfig` in `.git/config` (per-repo), `GlobalConfig` in `~/.config/engram/repos.toml` (global settings, API keys)
 - **Hooks** (`src/hooks/`) -- `ActiveSession` with file locking, hook installer, commit trailer injection
 - **Errors** (`src/error.rs`) -- `CoreError` enum via `thiserror`
 
@@ -52,6 +56,7 @@ Session capture layer:
 - **File detection** -- SHA-256 snapshots before/after, respects `.gitignore`
 - **Session builder** (`src/session/`) -- Converts raw captured data to `EngramData`
 - **Importers** (`src/import/`) -- Claude Code JSONL parser, Aider markdown parser, auto-detection
+- **LLM summarization** (`src/summarize.rs`) -- Calls Claude API to generate structured intent fields from transcripts
 
 ### engram-query
 

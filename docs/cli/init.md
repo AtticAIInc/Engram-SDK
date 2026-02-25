@@ -30,6 +30,7 @@ Engram initialized. Reasoning capture is ready.
   Auto-capture:     ON  (agent sessions imported on commit)
   Auto-push:        ON  (engram refs sync on git push)
   Claude Code hook: ON  (sessions auto-imported on exit)
+  LLM summarize:    OFF (set API key for enhanced summaries)
   Git notes alias:  ON  (use `git loge` to view reasoning)
   Annotated 15 commit(s) with engram reasoning notes.
 
@@ -37,7 +38,13 @@ Next steps:
   engram log                         List captured engrams
   engram search "query"              Search reasoning history
   engram why src/file.rs             Why does this file exist?
+
+Tip: Set an API key to enable LLM-powered summarization:
+  engram config set anthropic_api_key sk-ant-...
+  (or set ANTHROPIC_API_KEY environment variable)
 ```
+
+When an API key is configured, the LLM summarize line shows `ON (API key configured)` and the tip is omitted.
 
 ## Flags
 
@@ -71,5 +78,6 @@ engram init --remote upstream
 ## See Also
 
 - [Quick Start](../getting-started/quick-start.md)
+- [config](config.md) -- Configure API keys and model overrides
 - [Git Hooks](../guides/git-hooks.md)
 - [Remote Sync](../guides/remote-sync.md)
