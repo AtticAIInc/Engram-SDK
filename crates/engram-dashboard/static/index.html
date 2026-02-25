@@ -20,7 +20,7 @@ header h1 span { color: var(--accent); }
 .search-bar { margin-bottom: 1.5rem; }
 .search-bar input { width: 100%; padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 1rem; outline: none; }
 .search-bar input:focus { border-color: var(--accent); }
-.tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .tab { padding: 0.5rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 0.9rem; }
 .tab.active { color: var(--text); border-color: var(--accent); background: rgba(88, 166, 255, 0.1); }
 .engram-list { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -51,6 +51,41 @@ header h1 span { color: var(--accent); }
 .trend-bar:hover { opacity: 1; }
 .empty { text-align: center; color: var(--muted); padding: 3rem; }
 .loading { text-align: center; color: var(--muted); padding: 2rem; }
+/* Notes styles */
+.note-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; }
+.note-item .commit-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
+.note-item .commit-sha { font-family: monospace; color: var(--accent); font-size: 0.85rem; }
+.note-item .commit-msg { font-weight: 600; margin-bottom: 0.25rem; }
+.note-item .note-meta { display: flex; gap: 0.75rem; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; flex-wrap: wrap; }
+.note-item .note-body { font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; background: var(--bg); padding: 0.75rem; border-radius: 4px; line-height: 1.5; color: var(--muted); }
+/* Transcript styles */
+.transcript { margin-top: 0.75rem; }
+.transcript-entry { margin-bottom: 0.5rem; padding: 0.6rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
+.transcript-entry.user { background: rgba(88, 166, 255, 0.08); border-left: 3px solid var(--accent); }
+.transcript-entry.assistant { background: rgba(63, 185, 80, 0.06); border-left: 3px solid var(--green); }
+.transcript-entry.system { background: rgba(210, 153, 34, 0.08); border-left: 3px solid var(--yellow); }
+.transcript-entry.tool { background: var(--bg); border-left: 3px solid var(--muted); }
+.transcript-entry .role-badge { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.transcript-entry.user .role-badge { color: var(--accent); }
+.transcript-entry.assistant .role-badge { color: var(--green); }
+.transcript-entry.system .role-badge { color: var(--yellow); }
+.transcript-entry.tool .role-badge { color: var(--muted); }
+.transcript-entry .thinking-block { color: var(--muted); font-style: italic; }
+.transcript-entry .tool-name { color: var(--yellow); font-weight: 600; font-family: monospace; }
+.transcript-entry .tool-input { background: var(--bg); padding: 0.4rem 0.5rem; border-radius: 4px; margin-top: 0.25rem; font-family: monospace; font-size: 0.75rem; max-height: 150px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+.transcript-entry .tool-output { white-space: pre-wrap; max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; margin-top: 0.25rem; }
+.transcript-entry .error-output { color: var(--red); }
+.transcript-entry .token-count { float: right; color: var(--muted); font-size: 0.7rem; }
+.transcript-entry .entry-text { margin-top: 0.25rem; white-space: pre-wrap; }
+.transcript-toggle { background: none; border: 1px solid var(--accent); color: var(--accent); padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.transcript-toggle:hover { background: rgba(88, 166, 255, 0.1); }
+/* Graph styles */
+.graph-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; position: relative; }
+.graph-container svg { width: 100%; height: 550px; display: block; }
+.graph-legend { position: absolute; top: 0.75rem; right: 0.75rem; background: var(--bg); border: 1px solid var(--border); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.75rem; }
+.graph-legend .legend-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
+.graph-legend .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.graph-tooltip { position: absolute; background: var(--bg); border: 1px solid var(--border); padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.8rem; pointer-events: none; display: none; z-index: 10; max-width: 300px; word-break: break-all; }
 </style>
 </head>
 <body>
@@ -71,6 +106,8 @@ header h1 span { color: var(--accent); }
     <div class="tab" data-tab="trend">Cost Trend</div>
     <div class="tab" data-tab="files">Top Files</div>
     <div class="tab" data-tab="agents">By Agent</div>
+    <div class="tab" data-tab="notes">Git Notes</div>
+    <div class="tab" data-tab="graph">Graph</div>
   </div>
 
   <div id="content"></div>
@@ -79,6 +116,11 @@ header h1 span { color: var(--accent); }
 <script>
 const API = '';
 let currentView = 'list';
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 async function fetchJSON(url) {
   const r = await fetch(API + url);
@@ -114,10 +156,10 @@ async function loadEngrams(query) {
         <span class="id">${e.short_id || e.id.slice(0, 8)}</span>
         <span class="date">${new Date(e.created_at).toLocaleDateString()}</span>
       </div>
-      <div class="summary">${e.summary || '(no summary)'}</div>
+      <div class="summary">${escapeHtml(e.summary) || '(no summary)'}</div>
       <div class="meta">
-        <span class="badge agent">${e.agent}</span>
-        ${e.model ? `<span>${e.model}</span>` : ''}
+        <span class="badge agent">${escapeHtml(e.agent)}</span>
+        ${e.model ? `<span>${escapeHtml(e.model)}</span>` : ''}
         <span>${(e.tokens || 0).toLocaleString()} tokens</span>
         <span class="badge cost">$${(e.cost_usd || 0).toFixed(2)}</span>
         ${e.score != null ? `<span>score: ${e.score.toFixed(2)}</span>` : ''}
@@ -134,19 +176,19 @@ async function showDetail(id) {
 
   let html = `<button class="back-btn" onclick="backToList()">&larr; Back</button>`;
   html += `<div class="detail-panel">`;
-  html += `<h2>${data.summary || data.intent?.request || '(no summary)'}</h2>`;
+  html += `<h2>${escapeHtml(data.summary || data.intent?.request || '(no summary)')}</h2>`;
   html += `<div class="section"><h3>Details</h3>`;
   html += `<p><strong>ID:</strong> <code>${data.id}</code></p>`;
-  html += `<p><strong>Agent:</strong> ${data.agent} ${data.model ? `(${data.model})` : ''}</p>`;
+  html += `<p><strong>Agent:</strong> ${escapeHtml(data.agent)} ${data.model ? `(${escapeHtml(data.model)})` : ''}</p>`;
   html += `<p><strong>Date:</strong> ${new Date(data.created_at).toLocaleString()}</p>`;
   html += `<p><strong>Tokens:</strong> ${(data.tokens || 0).toLocaleString()} | <strong>Cost:</strong> ${cost}</p>`;
   html += `</div>`;
 
   if (data.intent) {
     html += `<div class="section"><h3>Intent</h3>`;
-    html += `<p><strong>Request:</strong> ${data.intent.request || ''}</p>`;
-    if (data.intent.goal) html += `<p><strong>Goal:</strong> ${data.intent.goal}</p>`;
-    if (data.intent.summary) html += `<p><strong>Summary:</strong> ${data.intent.summary}</p>`;
+    html += `<p><strong>Request:</strong> ${escapeHtml(data.intent.request || '')}</p>`;
+    if (data.intent.goal) html += `<p><strong>Goal:</strong> ${escapeHtml(data.intent.goal)}</p>`;
+    if (data.intent.summary) html += `<p><strong>Summary:</strong> ${escapeHtml(data.intent.summary)}</p>`;
     html += `</div>`;
   }
 
@@ -158,7 +200,7 @@ async function showDetail(id) {
       const lines = [];
       if (fc.lines_added) lines.push(`+${fc.lines_added}`);
       if (fc.lines_removed) lines.push(`-${fc.lines_removed}`);
-      html += `<div class="${cls}">${symbol} ${fc.path} ${lines.length ? `(${lines.join('/')})` : ''}</div>`;
+      html += `<div class="${cls}">${symbol} ${escapeHtml(fc.path)} ${lines.length ? `(${lines.join('/')})` : ''}</div>`;
     });
     html += `</div></div>`;
   }
@@ -166,7 +208,7 @@ async function showDetail(id) {
   if (data.dead_ends && data.dead_ends.length > 0) {
     html += `<div class="section"><h3>Dead Ends</h3>`;
     data.dead_ends.forEach(de => {
-      html += `<div class="dead-end"><strong>${de.approach}:</strong> ${de.reason}</div>`;
+      html += `<div class="dead-end"><strong>${escapeHtml(de.approach)}:</strong> ${escapeHtml(de.reason)}</div>`;
     });
     html += `</div>`;
   }
@@ -174,10 +216,20 @@ async function showDetail(id) {
   if (data.decisions && data.decisions.length > 0) {
     html += `<div class="section"><h3>Decisions</h3>`;
     data.decisions.forEach(d => {
-      html += `<div class="decision"><strong>${d.description}:</strong> ${d.rationale}</div>`;
+      html += `<div class="decision"><strong>${escapeHtml(d.description)}:</strong> ${escapeHtml(d.rationale)}</div>`;
     });
     html += `</div>`;
   }
+
+  // Transcript section
+  const tc = data.transcript_count || 0;
+  html += `<div class="section"><h3>Transcript</h3>`;
+  if (tc > 0) {
+    html += `<button class="transcript-toggle" onclick="loadTranscript('${data.id}')">Load Transcript (${tc} entries)</button>`;
+  } else {
+    html += `<p style="color:var(--muted)">No transcript recorded.</p>`;
+  }
+  html += `<div id="transcript-container"></div></div>`;
 
   html += `</div>`;
   el.innerHTML = html;
@@ -223,7 +275,7 @@ async function loadFiles() {
   html += '<table style="width:100%;font-size:0.85rem;">';
   html += '<tr style="color:var(--muted)"><th style="text-align:left">File</th><th style="text-align:right">Sessions</th><th style="text-align:right">Tokens</th><th style="text-align:right">Cost</th></tr>';
   files.forEach(f => {
-    html += `<tr><td style="font-family:monospace">${f.file}</td><td style="text-align:right">${f.sessions}</td><td style="text-align:right">${(f.tokens||0).toLocaleString()}</td><td style="text-align:right;color:var(--green)">$${(f.cost_usd||0).toFixed(2)}</td></tr>`;
+    html += `<tr><td style="font-family:monospace">${escapeHtml(f.file)}</td><td style="text-align:right">${f.sessions}</td><td style="text-align:right">${(f.tokens||0).toLocaleString()}</td><td style="text-align:right;color:var(--green)">$${(f.cost_usd||0).toFixed(2)}</td></tr>`;
   });
   html += '</table></div>';
   el.innerHTML = html;
@@ -238,10 +290,246 @@ async function loadAgents() {
   html += '<table style="width:100%;font-size:0.85rem;">';
   html += '<tr style="color:var(--muted)"><th style="text-align:left">Agent</th><th style="text-align:right">Sessions</th><th style="text-align:right">Tokens</th><th style="text-align:right">Cost</th></tr>';
   agents.forEach(a => {
-    html += `<tr><td><span class="badge agent">${a.agent}</span></td><td style="text-align:right">${a.count}</td><td style="text-align:right">${(a.tokens||0).toLocaleString()}</td><td style="text-align:right;color:var(--green)">$${(a.cost_usd||0).toFixed(2)}</td></tr>`;
+    html += `<tr><td><span class="badge agent">${escapeHtml(a.agent)}</span></td><td style="text-align:right">${a.count}</td><td style="text-align:right">${(a.tokens||0).toLocaleString()}</td><td style="text-align:right;color:var(--green)">$${(a.cost_usd||0).toFixed(2)}</td></tr>`;
   });
   html += '</table></div>';
   el.innerHTML = html;
+}
+
+// --- Git Notes ---
+async function loadNotes() {
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="loading">Loading git notes...</div>';
+  const data = await fetchJSON('/api/notes?limit=100');
+  const notes = data.notes || [];
+  if (notes.length === 0) {
+    el.innerHTML = '<div class="empty">No git notes found. Run <code>engram annotate</code> to add reasoning notes to commits.</div>';
+    return;
+  }
+  let html = '<div class="detail-panel"><h2>Git Notes (Reasoning on Commits)</h2>';
+  html += `<p style="color:var(--muted);margin-bottom:1rem;font-size:0.85rem">${notes.length} annotated commit(s)</p>`;
+  notes.forEach(n => {
+    html += `<div class="note-item">
+      <div class="commit-info">
+        <span class="commit-sha">${n.commit_short}</span>
+        <span style="color:var(--muted);font-size:0.8rem">${n.commit_date ? new Date(n.commit_date).toLocaleDateString() : ''}</span>
+      </div>
+      <div class="commit-msg">${escapeHtml(n.commit_message)}</div>
+      <div class="note-meta">
+        ${n.agent ? `<span class="badge agent">${escapeHtml(n.agent)}</span>` : ''}
+        ${n.model ? `<span>${escapeHtml(n.model)}</span>` : ''}
+        ${n.cost ? `<span class="badge cost">${escapeHtml(n.cost)}</span>` : ''}
+        ${n.tokens ? `<span>${escapeHtml(n.tokens)}</span>` : ''}
+        <span>${escapeHtml(n.commit_author)}</span>
+      </div>
+      <div class="note-body">${escapeHtml(n.note_text)}</div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// --- Transcript Browser ---
+async function loadTranscript(id) {
+  const container = document.getElementById('transcript-container');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">Loading transcript...</div>';
+  const data = await fetchJSON(`/api/engrams/${id}/transcript`);
+  const entries = data.entries || [];
+  if (entries.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted)">No transcript entries.</p>';
+    return;
+  }
+  let html = '<div class="transcript">';
+  entries.forEach(e => {
+    const role = e.role || 'unknown';
+    html += `<div class="transcript-entry ${role}">`;
+    html += `<span class="role-badge">${role}</span>`;
+    if (e.token_count) html += `<span class="token-count">${e.token_count.toLocaleString()} tok</span>`;
+
+    const type = e.type || 'text';
+    if (type === 'text') {
+      html += `<div class="entry-text">${escapeHtml(e.text)}</div>`;
+    } else if (type === 'thinking') {
+      html += `<div class="thinking-block">${escapeHtml(e.text)}</div>`;
+    } else if (type === 'tool_use') {
+      html += `<div><span class="tool-name">${escapeHtml(e.tool_name)}</span></div>`;
+      if (e.input) {
+        const inputStr = typeof e.input === 'string' ? e.input : JSON.stringify(e.input, null, 2);
+        html += `<div class="tool-input">${escapeHtml(inputStr)}</div>`;
+      }
+    } else if (type === 'tool_result') {
+      const cls = e.is_error ? ' error-output' : '';
+      html += `<div class="tool-output${cls}">${escapeHtml(e.output)}</div>`;
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// --- Context Graph ---
+const GRAPH_COLORS = { Engram: '#58a6ff', File: '#d29922', Agent: '#3fb950', Commit: '#8b949e' };
+const GRAPH_RADIUS = { Engram: 8, File: 6, Agent: 10, Commit: 5 };
+
+async function loadGraph(center, depth) {
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="loading">Building graph...</div>';
+  let url = '/api/graph';
+  const params = [];
+  if (center) params.push(`center=${encodeURIComponent(center)}`);
+  if (depth) params.push(`depth=${depth}`);
+  if (params.length) url += '?' + params.join('&');
+
+  const data = await fetchJSON(url);
+  if (!data.nodes || data.nodes.length === 0) {
+    el.innerHTML = '<div class="empty">No graph data available. Import or record some engrams first.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="graph-container">
+      <svg id="graph-svg"></svg>
+      <div class="graph-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS.Engram}"></div> Engram</div>
+        <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS.File}"></div> File</div>
+        <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS.Agent}"></div> Agent</div>
+        <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS.Commit}"></div> Commit</div>
+      </div>
+      <div class="graph-tooltip" id="graph-tooltip"></div>
+      <div style="color:var(--muted);font-size:0.8rem;margin-top:0.5rem;padding:0 0.5rem">
+        ${data.node_count} nodes, ${data.edge_count} edges${center ? ` (centered on ${escapeHtml(center)})` : ''}. Click a node to recenter.
+      </div>
+    </div>`;
+
+  renderForceGraph(data.nodes, data.edges);
+}
+
+function renderForceGraph(nodes, edges) {
+  const svg = document.getElementById('graph-svg');
+  if (!svg) return;
+  const W = svg.clientWidth || 900;
+  const H = svg.clientHeight || 550;
+  const ns = 'http://www.w3.org/2000/svg';
+
+  // Build adjacency for edge lookup
+  const nodeMap = {};
+  nodes.forEach((n, i) => {
+    n._x = W/2 + (Math.random() - 0.5) * W * 0.6;
+    n._y = H/2 + (Math.random() - 0.5) * H * 0.6;
+    n._vx = 0; n._vy = 0;
+    n._idx = i;
+    nodeMap[n.id] = n;
+  });
+
+  // Force simulation
+  const repulsion = 800;
+  const springLen = 120;
+  const springK = 0.005;
+  const gravity = 0.01;
+  const damping = 0.9;
+  const iterations = 250;
+
+  for (let iter = 0; iter < iterations; iter++) {
+    // Repulsion (all pairs)
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        let dx = nodes[i]._x - nodes[j]._x;
+        let dy = nodes[i]._y - nodes[j]._y;
+        let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        let force = repulsion / (dist * dist);
+        let fx = (dx / dist) * force;
+        let fy = (dy / dist) * force;
+        nodes[i]._vx += fx; nodes[i]._vy += fy;
+        nodes[j]._vx -= fx; nodes[j]._vy -= fy;
+      }
+    }
+
+    // Attraction (edges)
+    edges.forEach(e => {
+      const a = nodeMap[e.from], b = nodeMap[e.to];
+      if (!a || !b) return;
+      let dx = b._x - a._x;
+      let dy = b._y - a._y;
+      let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      let force = (dist - springLen) * springK;
+      let fx = (dx / dist) * force;
+      let fy = (dy / dist) * force;
+      a._vx += fx; a._vy += fy;
+      b._vx -= fx; b._vy -= fy;
+    });
+
+    // Gravity toward center
+    nodes.forEach(n => {
+      n._vx += (W/2 - n._x) * gravity;
+      n._vy += (H/2 - n._y) * gravity;
+    });
+
+    // Apply velocities
+    nodes.forEach(n => {
+      n._vx *= damping; n._vy *= damping;
+      n._x += n._vx; n._y += n._vy;
+      // Clamp to bounds
+      n._x = Math.max(20, Math.min(W - 20, n._x));
+      n._y = Math.max(20, Math.min(H - 20, n._y));
+    });
+  }
+
+  // Render SVG
+  svg.innerHTML = '';
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  // Edges
+  edges.forEach(e => {
+    const a = nodeMap[e.from], b = nodeMap[e.to];
+    if (!a || !b) return;
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', a._x); line.setAttribute('y1', a._y);
+    line.setAttribute('x2', b._x); line.setAttribute('y2', b._y);
+    line.setAttribute('stroke', '#30363d'); line.setAttribute('stroke-width', '1');
+    line.setAttribute('opacity', '0.6');
+    svg.appendChild(line);
+  });
+
+  // Nodes
+  const tooltip = document.getElementById('graph-tooltip');
+  nodes.forEach(n => {
+    const r = GRAPH_RADIUS[n.node_type] || 6;
+    const color = GRAPH_COLORS[n.node_type] || '#8b949e';
+
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('cx', n._x); circle.setAttribute('cy', n._y);
+    circle.setAttribute('r', r); circle.setAttribute('fill', color);
+    circle.setAttribute('stroke', '#0d1117'); circle.setAttribute('stroke-width', '1.5');
+    circle.style.cursor = 'pointer';
+
+    circle.addEventListener('mouseenter', (ev) => {
+      if (tooltip) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (ev.offsetX + 12) + 'px';
+        tooltip.style.top = (ev.offsetY - 8) + 'px';
+        tooltip.textContent = `${n.node_type}: ${n.label}`;
+      }
+    });
+    circle.addEventListener('mouseleave', () => {
+      if (tooltip) tooltip.style.display = 'none';
+    });
+    circle.addEventListener('click', () => {
+      loadGraph(n.id, 2);
+    });
+
+    svg.appendChild(circle);
+
+    // Label (short)
+    const label = n.label.length > 20 ? n.label.slice(0, 18) + '..' : n.label;
+    const text = document.createElementNS(ns, 'text');
+    text.setAttribute('x', n._x); text.setAttribute('y', n._y + r + 12);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', '#8b949e'); text.setAttribute('font-size', '9');
+    text.setAttribute('font-family', 'monospace');
+    text.textContent = label;
+    svg.appendChild(text);
+  });
 }
 
 // Tab switching
@@ -255,6 +543,8 @@ document.querySelectorAll('.tab').forEach(tab => {
       case 'trend': loadTrend(); break;
       case 'files': loadFiles(); break;
       case 'agents': loadAgents(); break;
+      case 'notes': loadNotes(); break;
+      case 'graph': loadGraph(); break;
     }
   });
 });

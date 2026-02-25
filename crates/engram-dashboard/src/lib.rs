@@ -10,8 +10,9 @@ use axum::Router;
 use serde::Deserialize;
 use tower_http::cors::CorsLayer;
 
+use engram_core::notes::ENGRAM_NOTES_REF;
 use engram_core::storage::{GitStorage, ListOptions};
-use engram_query::SearchEngine;
+use engram_query::{build_graph, SearchEngine};
 
 const INDEX_HTML: &str = include_str!("../static/index.html");
 
@@ -38,6 +39,9 @@ pub fn build_router(repo_path: &Path) -> Router {
         .route("/api/stats/by-file", get(stats_by_file))
         .route("/api/stats/by-agent", get(stats_by_agent))
         .route("/api/search", get(search_handler))
+        .route("/api/notes", get(notes_handler))
+        .route("/api/engrams/{id}/transcript", get(transcript_handler))
+        .route("/api/graph", get(graph_handler))
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -135,6 +139,7 @@ async fn show_engram(
         "decisions": data.intent.decisions.iter().map(|d| {
             serde_json::json!({ "description": d.description, "rationale": d.rationale })
         }).collect::<Vec<_>>(),
+        "transcript_count": data.transcript.entries.len(),
     })))
 }
 
@@ -352,5 +357,179 @@ async fn search_handler(
         "query": params.q,
         "results": entries,
         "total": entries.len(),
+    })))
+}
+
+// --- Notes handler ---
+
+#[derive(Deserialize)]
+struct NotesParams {
+    limit: Option<usize>,
+}
+
+async fn notes_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<NotesParams>,
+) -> impl IntoResponse {
+    let storage = open_storage(&state)?;
+    let repo = storage.repo();
+    let limit = params.limit.unwrap_or(50);
+
+    let mut revwalk = repo
+        .revwalk()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if repo.head().is_err() {
+        return Ok::<_, StatusCode>(axum::Json(serde_json::json!({ "notes": [] })));
+    }
+    revwalk
+        .push_head()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    revwalk
+        .set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut notes = Vec::new();
+    let mut walked = 0;
+
+    for oid_result in revwalk {
+        if walked >= limit {
+            break;
+        }
+        let oid = match oid_result {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+        walked += 1;
+
+        let note = match repo.find_note(Some(ENGRAM_NOTES_REF), oid) {
+            Ok(n) => n,
+            Err(_) => continue,
+        };
+
+        let note_text = note.message().unwrap_or("").to_string();
+        let commit = match repo.find_commit(oid) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let sha = oid.to_string();
+        let short_sha = sha[..8.min(sha.len())].to_string();
+        let message = commit.summary().unwrap_or("").to_string();
+        let author = commit.author().name().unwrap_or("unknown").to_string();
+        let time = commit.time();
+        let date = chrono::DateTime::from_timestamp(time.seconds(), 0)
+            .map(|dt| dt.to_rfc3339())
+            .unwrap_or_default();
+
+        // Parse first line: [agent/model] $cost Ntok
+        let first_line = note_text.lines().next().unwrap_or("");
+        let (agent, model, cost, tokens) = parse_note_header(first_line);
+
+        notes.push(serde_json::json!({
+            "commit_sha": sha,
+            "commit_short": short_sha,
+            "commit_message": message,
+            "commit_author": author,
+            "commit_date": date,
+            "note_text": note_text,
+            "agent": agent,
+            "model": model,
+            "cost": cost,
+            "tokens": tokens,
+        }));
+    }
+
+    Ok::<_, StatusCode>(axum::Json(serde_json::json!({ "notes": notes })))
+}
+
+/// Parse the first line of an engram note: `[agent/model] $cost Ntok`
+fn parse_note_header(line: &str) -> (String, String, String, String) {
+    let mut agent = String::new();
+    let mut model = String::new();
+    let mut cost = String::new();
+    let mut tokens = String::new();
+
+    if let Some(bracket_end) = line.find(']') {
+        let inner = &line[1..bracket_end];
+        if let Some(slash) = inner.find('/') {
+            agent = inner[..slash].to_string();
+            model = inner[slash + 1..].to_string();
+        }
+        let rest = line[bracket_end + 1..].trim();
+        let parts: Vec<&str> = rest.split_whitespace().collect();
+        if parts.len() >= 2 {
+            cost = parts[0].to_string();
+            tokens = parts[1].to_string();
+        }
+    }
+
+    (agent, model, cost, tokens)
+}
+
+// --- Transcript handler ---
+
+async fn transcript_handler(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let storage = open_storage(&state)?;
+    let resolved = storage.resolve(&id).map_err(|_| StatusCode::NOT_FOUND)?;
+    let data = storage.read(&resolved).map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let entries: Vec<serde_json::Value> = data
+        .transcript
+        .entries
+        .iter()
+        .map(|e| {
+            let mut obj = serde_json::json!({
+                "timestamp": e.timestamp.to_rfc3339(),
+                "role": serde_json::to_value(&e.role).unwrap_or_default(),
+                "token_count": e.token_count,
+            });
+            // Merge content fields into the same object
+            if let Ok(content_val) = serde_json::to_value(&e.content) {
+                if let Some(content_obj) = content_val.as_object() {
+                    for (k, v) in content_obj {
+                        obj[k] = v.clone();
+                    }
+                }
+            }
+            obj
+        })
+        .collect();
+
+    Ok::<_, StatusCode>(axum::Json(serde_json::json!({
+        "engram_id": id,
+        "entry_count": entries.len(),
+        "entries": entries,
+    })))
+}
+
+// --- Graph handler ---
+
+#[derive(Deserialize)]
+struct GraphParams {
+    center: Option<String>,
+    depth: Option<usize>,
+}
+
+async fn graph_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<GraphParams>,
+) -> impl IntoResponse {
+    let storage = open_storage(&state)?;
+    let graph = build_graph(&storage).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let result = if let Some(center) = &params.center {
+        graph.subgraph(center, params.depth.unwrap_or(2))
+    } else {
+        graph
+    };
+
+    Ok::<_, StatusCode>(axum::Json(serde_json::json!({
+        "nodes": result.nodes,
+        "edges": result.edges,
+        "node_count": result.nodes.len(),
+        "edge_count": result.edges.len(),
     })))
 }
