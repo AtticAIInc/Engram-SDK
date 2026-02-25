@@ -1,0 +1,21 @@
+{
+  "id": "fc3e00c654ee40dc9d0eb020df1d0b8d",
+  "version": 1,
+  "created_at": "2026-02-11T15:28:46.710Z",
+  "finished_at": "2026-02-12T02:06:21.770Z",
+  "agent": {
+    "name": "claude-code",
+    "model": "claude-opus-4-6"
+  },
+  "git_commits": [],
+  "token_usage": {
+    "input_tokens": 24266,
+    "output_tokens": 70318,
+    "cache_read_tokens": 122273578,
+    "cache_write_tokens": 4052902,
+    "total_tokens": 126421064
+  },
+  "summary": "<command-message>init</command-message>\n<command-name>/init</command-name>",
+  "capture_mode": "import",
+  "source_hash": "e7a0625e33300dbafeeb218d44e6695eae7c95d0d411f8d10ee833b66e86f422"
+}
