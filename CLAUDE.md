@@ -13,7 +13,7 @@ Engram captures AI agent reasoning as first-class, versioned data in Git. Each "
 ```bash
 source "$HOME/.cargo/env"             # Ensure cargo is on PATH
 cargo build --workspace               # Build all crates
-cargo test --workspace                # Run all Rust tests (124 currently)
+cargo test --workspace                # Run all Rust tests (129 currently)
 cargo test -p engram-core             # Test a single crate
 cargo clippy --workspace -- -D warnings  # Lint (zero warnings policy)
 cargo fmt --all -- --check            # Format check
@@ -30,7 +30,7 @@ cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 cd sdks/typescript && npm install && npx vitest run
 ```
 
-**Total test count: 124 Rust + 10 Python + 7 TypeScript = 141 tests.**
+**Total test count: 129 Rust + 10 Python + 7 TypeScript = 146 tests.**
 
 ## Architecture
 
@@ -43,14 +43,14 @@ crates/engram-query/     Tantivy full-text search index, file tracing, engram di
 crates/engram-protocol/  Push/pull/fetch engram refs between repos via Git refspecs
 crates/engram-sdk/       Fluent Rust SDK: EngramSession::begin() -> log_*() -> commit()
 crates/engram-mcp/       MCP server for AI agent integration (rmcp crate, stdio transport)
-crates/engram-cli/       CLI binary (installed as `engram`) — 20 public subcommands + 1 hidden
+crates/engram-cli/       CLI binary (installed as `engram`) — 22 public subcommands + 1 hidden
 sdks/python/             Python SDK (git CLI), install with pip
 sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with npm
 ```
 
-### CLI Commands (21 total)
+### CLI Commands (23 total)
 
-`init`, `record`, `import`, `log`, `show`, `search`, `trace`, `diff`, `graph`, `review`, `pr-summary`, `mcp`, `stats`, `blame`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
+`init`, `record`, `import`, `log`, `show`, `search`, `trace`, `why`, `diff`, `graph`, `review`, `pr-summary`, `mcp`, `stats`, `dead-ends`, `blame`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
 
 ### engram-core structure
 
@@ -105,7 +105,7 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 
 ### engram-mcp structure
 
-- `src/lib.rs` — `EngramMcpServer` struct with 6 tools: `engram_search`, `engram_show`, `engram_log`, `engram_trace`, `engram_diff`, `engram_dead_ends`. Uses rmcp `#[tool_router]`, `#[tool]`, `#[tool_handler]` macros. `run_stdio()` function starts the server.
+- `src/lib.rs` — `EngramMcpServer` struct with 8 tools: `engram_search`, `engram_show`, `engram_log`, `engram_trace`, `engram_diff`, `engram_dead_ends`, `engram_why`, `engram_stats`. Uses rmcp `#[tool_router]`, `#[tool]`, `#[tool_handler]` macros. `run_stdio()` function starts the server.
 
 ## MCP Tools (when available)
 
@@ -113,7 +113,9 @@ When the engram MCP server is connected, use these tools proactively:
 
 - **Before modifying a file**: call `engram_trace` with the file path to understand prior reasoning about that file
 - **Before starting a task**: call `engram_search` to find related prior work and avoid duplicating effort
-- **To avoid repeating mistakes**: call `engram_dead_ends` to check what approaches were already tried and rejected
+- **To avoid repeating mistakes**: call `engram_dead_ends` to check what approaches were already tried and rejected; use `recurring: true` to find approaches tried and rejected multiple times
+- **To understand why code exists**: call `engram_why` with a file path to get the full reasoning chain
+- **To understand cost**: call `engram_stats` with `by_file: true` or `trend: true` for analytics
 - **To understand recent context**: call `engram_log` to see recent engrams, and `engram_show` with id "HEAD" to see the most recent session's full details
 
 ## License

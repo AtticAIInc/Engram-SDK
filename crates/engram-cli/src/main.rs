@@ -57,10 +57,12 @@ fn main() -> Result<()> {
         commands::Commands::Push(args) => commands::push::run(args),
         commands::Commands::Pull(args) => commands::pull::run(args),
         commands::Commands::Fetch(args) => commands::fetch::run(args),
-        commands::Commands::Stats => commands::stats::run(cli.format),
+        commands::Commands::Stats(args) => commands::stats::run(args, cli.format),
+        commands::Commands::DeadEnds(args) => commands::dead_ends::run(args, cli.format),
         commands::Commands::Gc(args) => commands::gc::run(args),
         commands::Commands::Blame(args) => commands::blame::run(args, cli.format),
         commands::Commands::Reindex => commands::reindex::run(),
+        commands::Commands::Why(args) => commands::why::run(args, cli.format),
         commands::Commands::Version => commands::version::run(),
         commands::Commands::HookHandler(args) => commands::hook_handler::run(args),
     }

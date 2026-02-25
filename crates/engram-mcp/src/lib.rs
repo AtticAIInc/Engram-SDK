@@ -82,6 +82,28 @@ pub struct DeadEndsParams {
     pub id: Option<String>,
     /// Search for dead ends matching this text (optional)
     pub query: Option<String>,
+    /// Set to true to only show dead ends that recur across multiple sessions
+    pub recurring: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct WhyParams {
+    /// File path to explain the reasoning history for
+    pub file_path: String,
+    /// Maximum number of engrams to include (default: 20)
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct StatsParams {
+    /// Show cost breakdown by file
+    pub by_file: Option<bool>,
+    /// Show cost breakdown by branch
+    pub by_branch: Option<bool>,
+    /// Show daily cost trend for last 30 days
+    pub trend: Option<bool>,
+    /// Maximum entries in breakdowns (default: 10)
+    pub top: Option<usize>,
 }
 
 // -- Tool implementations --
@@ -352,7 +374,7 @@ impl EngramMcpServer {
     }
 
     #[tool(
-        description = "Surface rejected approaches (dead ends) and architectural decisions. Search across all engrams or get dead ends from a specific engram."
+        description = "Surface rejected approaches (dead ends) and architectural decisions. Search across all engrams or get dead ends from a specific engram. Use recurring=true to find approaches tried and rejected multiple times."
     )]
     fn engram_dead_ends(
         &self,
@@ -402,6 +424,55 @@ impl EngramMcpServer {
             .map_err(|e| format!("Failed to list engrams: {e}"))?;
 
         let query_lower = params.query.as_deref().unwrap_or("").to_lowercase();
+
+        // Recurring mode: group by normalized approach name
+        if params.recurring.unwrap_or(false) {
+            let mut groups: std::collections::BTreeMap<String, Vec<(String, String, String)>> =
+                std::collections::BTreeMap::new();
+
+            for m in &manifests {
+                if let Ok(data) = storage.read(m.id.as_str()) {
+                    for de in &data.intent.dead_ends {
+                        if !query_lower.is_empty()
+                            && !de.approach.to_lowercase().contains(&query_lower)
+                            && !de.reason.to_lowercase().contains(&query_lower)
+                        {
+                            continue;
+                        }
+                        let normalized = de.approach.trim().to_lowercase();
+                        let short_id = m.id.as_str()[..8.min(m.id.as_str().len())].to_string();
+                        let date = m.created_at.format("%Y-%m-%d").to_string();
+                        groups.entry(normalized).or_default().push((
+                            short_id,
+                            date,
+                            de.reason.clone(),
+                        ));
+                    }
+                }
+            }
+
+            let mut recurring: Vec<_> = groups.into_iter().filter(|(_, v)| v.len() >= 2).collect();
+            recurring.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
+
+            if recurring.is_empty() {
+                return Ok("No recurring dead ends found.".to_string());
+            }
+
+            let mut out = String::from("Recurring Dead Ends:\n\n");
+            for (approach, occurrences) in &recurring {
+                out.push_str(&format!(
+                    "{} (tried {} times, rejected every time):\n",
+                    approach,
+                    occurrences.len()
+                ));
+                for (id, date, reason) in occurrences {
+                    out.push_str(&format!("  [{date}] {id}: {reason}\n"));
+                }
+                out.push('\n');
+            }
+            return Ok(out);
+        }
+
         let mut out = String::new();
         let mut found = 0;
 
@@ -462,6 +533,249 @@ impl EngramMcpServer {
 
         Ok(out)
     }
+
+    #[tool(
+        description = "Explain why a file exists by tracing its full reasoning chain. Shows chronological history of every session that touched the file, including requests, goals, decisions, and dead ends."
+    )]
+    fn engram_why(&self, Parameters(params): Parameters<WhyParams>) -> Result<String, String> {
+        let storage = self.open_storage()?;
+        let engine =
+            SearchEngine::open(&storage).map_err(|e| format!("Failed to open search: {e}"))?;
+        let limit = params.limit.unwrap_or(20);
+        let results = engine
+            .search_by_file(&storage, &params.file_path, limit)
+            .map_err(|e| format!("Search failed: {e}"))?;
+
+        if results.is_empty() {
+            return Ok(format!(
+                "No reasoning history found for: {}",
+                params.file_path
+            ));
+        }
+
+        // Collect and sort chronologically (oldest first)
+        let mut entries: Vec<engram_core::model::EngramData> = Vec::new();
+        for r in &results {
+            if let Ok(data) = storage.read(r.manifest.id.as_str()) {
+                entries.push(data);
+            }
+        }
+        entries.sort_by_key(|e| e.manifest.created_at);
+
+        let mut out = format!("Why does `{}` exist?\n\n", params.file_path);
+        let mut total_tokens: u64 = 0;
+        let mut total_cost: f64 = 0.0;
+
+        for (i, data) in entries.iter().enumerate() {
+            let m = &data.manifest;
+            total_tokens += m.token_usage.total_tokens;
+            total_cost += m.token_usage.cost_usd.unwrap_or(0.0);
+
+            let date = m.created_at.format("%Y-%m-%d %H:%M");
+            let agent = &m.agent.name;
+            let model = m.agent.model.as_deref().unwrap_or("unknown");
+
+            let file_change = data
+                .operations
+                .file_changes
+                .iter()
+                .find(|fc| fc.path == params.file_path);
+
+            let change_desc = file_change
+                .map(|fc| match &fc.change_type {
+                    FileChangeType::Created => "Created".to_string(),
+                    FileChangeType::Modified => "Modified".to_string(),
+                    FileChangeType::Deleted => "Deleted".to_string(),
+                    FileChangeType::Renamed { from } => format!("Renamed from {from}"),
+                })
+                .unwrap_or_else(|| "Touched".to_string());
+
+            out.push_str(&format!(
+                "{}. [{date}] {agent} ({model}) — {change_desc}\n",
+                i + 1
+            ));
+            out.push_str(&format!(
+                "   Request: \"{}\"\n",
+                data.intent.original_request
+            ));
+
+            if let Some(goal) = &data.intent.interpreted_goal {
+                if goal != &data.intent.original_request {
+                    out.push_str(&format!("   Goal: {goal}\n"));
+                }
+            }
+
+            if let Some(summary) = data.intent.summary.as_deref().or(m.summary.as_deref()) {
+                out.push_str(&format!("   Result: {summary}\n"));
+            }
+
+            if !data.intent.dead_ends.is_empty() {
+                for de in &data.intent.dead_ends {
+                    out.push_str(&format!("   Dead end: {} — {}\n", de.approach, de.reason));
+                }
+            }
+            if !data.intent.decisions.is_empty() {
+                for d in &data.intent.decisions {
+                    out.push_str(&format!(
+                        "   Decision: {} — {}\n",
+                        d.description, d.rationale
+                    ));
+                }
+            }
+            out.push('\n');
+        }
+
+        out.push_str(&format!(
+            "{} sessions | {} tokens | ${:.2} total cost\n",
+            entries.len(),
+            total_tokens,
+            total_cost
+        ));
+
+        Ok(out)
+    }
+
+    #[tool(
+        description = "Show aggregate statistics across all engrams. Supports breakdowns by file (cost per file), by branch, and daily cost trends."
+    )]
+    fn engram_stats(&self, Parameters(params): Parameters<StatsParams>) -> Result<String, String> {
+        let storage = self.open_storage()?;
+        let manifests = storage
+            .list(&ListOptions::default())
+            .map_err(|e| format!("Failed to list engrams: {e}"))?;
+
+        if manifests.is_empty() {
+            return Ok("No engrams found.".to_string());
+        }
+
+        let top = params.top.unwrap_or(10);
+
+        if params.by_file.unwrap_or(false) {
+            let mut by_file: std::collections::BTreeMap<String, (usize, u64, f64)> =
+                std::collections::BTreeMap::new();
+            for m in &manifests {
+                if let Ok(data) = storage.read(m.id.as_str()) {
+                    let fc_count = data.operations.file_changes.len();
+                    if fc_count == 0 {
+                        continue;
+                    }
+                    let per_file_tokens = m.token_usage.total_tokens / fc_count as u64;
+                    let per_file_cost = m.token_usage.cost_usd.unwrap_or(0.0) / fc_count as f64;
+                    for fc in &data.operations.file_changes {
+                        let entry = by_file.entry(fc.path.clone()).or_default();
+                        entry.0 += 1;
+                        entry.1 += per_file_tokens;
+                        entry.2 += per_file_cost;
+                    }
+                }
+            }
+            let mut sorted: Vec<_> = by_file.into_iter().collect();
+            sorted.sort_by(|a, b| {
+                b.1 .2
+                    .partial_cmp(&a.1 .2)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            sorted.truncate(top);
+
+            let mut out = format!("Cost by File (top {top}):\n\n");
+            for (path, (sessions, tokens, cost)) in &sorted {
+                out.push_str(&format!(
+                    "  {path}: {sessions} sessions, {tokens} tokens, ${cost:.2}\n"
+                ));
+            }
+            return Ok(out);
+        }
+
+        if params.by_branch.unwrap_or(false) {
+            let mut by_branch: std::collections::BTreeMap<String, (usize, u64, f64)> =
+                std::collections::BTreeMap::new();
+            for m in &manifests {
+                let branch = if let Ok(data) = storage.read(m.id.as_str()) {
+                    data.lineage
+                        .branch
+                        .unwrap_or_else(|| "(unknown)".to_string())
+                } else {
+                    "(unknown)".to_string()
+                };
+                let entry = by_branch.entry(branch).or_default();
+                entry.0 += 1;
+                entry.1 += m.token_usage.total_tokens;
+                entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+            }
+            let mut sorted: Vec<_> = by_branch.into_iter().collect();
+            sorted.sort_by(|a, b| {
+                b.1 .2
+                    .partial_cmp(&a.1 .2)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            sorted.truncate(top);
+
+            let mut out = format!("Cost by Branch (top {top}):\n\n");
+            for (branch, (sessions, tokens, cost)) in &sorted {
+                out.push_str(&format!(
+                    "  {branch}: {sessions} sessions, {tokens} tokens, ${cost:.2}\n"
+                ));
+            }
+            return Ok(out);
+        }
+
+        if params.trend.unwrap_or(false) {
+            let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+            let mut by_date: std::collections::BTreeMap<chrono::NaiveDate, (usize, u64, f64)> =
+                std::collections::BTreeMap::new();
+            for m in &manifests {
+                if m.created_at < cutoff {
+                    continue;
+                }
+                let date = m.created_at.date_naive();
+                let entry = by_date.entry(date).or_default();
+                entry.0 += 1;
+                entry.1 += m.token_usage.total_tokens;
+                entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+            }
+
+            let mut out = String::from("Cost Trend (last 30 days):\n\n");
+            for (date, (sessions, tokens, cost)) in &by_date {
+                out.push_str(&format!(
+                    "  {date}: {sessions} sessions, {tokens} tokens, ${cost:.2}\n"
+                ));
+            }
+            let total_cost: f64 = by_date.values().map(|v| v.2).sum();
+            let total_sessions: usize = by_date.values().map(|v| v.0).sum();
+            out.push_str(&format!(
+                "\nTotal: {total_sessions} sessions, ${total_cost:.2}\n"
+            ));
+            return Ok(out);
+        }
+
+        // Default aggregate stats
+        let total = manifests.len();
+        let mut total_tokens: u64 = 0;
+        let mut total_cost: f64 = 0.0;
+        let mut by_agent: std::collections::BTreeMap<String, (usize, u64, f64)> =
+            std::collections::BTreeMap::new();
+
+        for m in &manifests {
+            total_tokens += m.token_usage.total_tokens;
+            total_cost += m.token_usage.cost_usd.unwrap_or(0.0);
+            let entry = by_agent.entry(m.agent.name.clone()).or_default();
+            entry.0 += 1;
+            entry.1 += m.token_usage.total_tokens;
+            entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+        }
+
+        let mut out = format!(
+            "Engram Statistics\n\nTotal: {total} engrams, {total_tokens} tokens, ${total_cost:.2}\n\n"
+        );
+        out.push_str("By Agent:\n");
+        for (name, (count, tokens, cost)) in &by_agent {
+            out.push_str(&format!(
+                "  {name}: {count} engrams, {tokens} tokens, ${cost:.2}\n"
+            ));
+        }
+
+        Ok(out)
+    }
 }
 
 #[tool_handler]
@@ -478,6 +792,8 @@ impl ServerHandler for EngramMcpServer {
                  - engram_trace: Reasoning history for a specific file path\n\
                  - engram_diff: Compare two engrams (files, tokens, cost)\n\
                  - engram_dead_ends: Surface rejected approaches and architectural decisions\n\
+                 - engram_why: Explain why a file exists through its full reasoning chain\n\
+                 - engram_stats: Aggregate statistics with breakdowns by file, branch, or trend\n\
                  \n\
                  Use these tools to check prior reasoning before making changes, \
                  avoid repeating dead ends, and understand the history behind existing code."
@@ -775,6 +1091,7 @@ mod tests {
             .engram_dead_ends(Parameters(DeadEndsParams {
                 id: Some(ids[0].as_str().to_string()),
                 query: None,
+                recurring: None,
             }))
             .unwrap();
 
@@ -791,6 +1108,7 @@ mod tests {
             .engram_dead_ends(Parameters(DeadEndsParams {
                 id: None,
                 query: Some("passport".into()),
+                recurring: None,
             }))
             .unwrap();
 
@@ -805,6 +1123,7 @@ mod tests {
             .engram_dead_ends(Parameters(DeadEndsParams {
                 id: Some(ids[1].as_str().to_string()), // aider engram with no dead ends
                 query: None,
+                recurring: None,
             }))
             .unwrap();
 
@@ -847,5 +1166,86 @@ mod tests {
             id: "nonexistent_id_12345".into(),
         }));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_engram_why() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_why(Parameters(WhyParams {
+                file_path: "src/auth.rs".into(),
+                limit: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("Why does `src/auth.rs` exist?"));
+        assert!(result.contains("OAuth2"));
+        assert!(result.contains("sessions"));
+    }
+
+    #[test]
+    fn test_engram_why_no_history() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_why(Parameters(WhyParams {
+                file_path: "nonexistent_file.rs".into(),
+                limit: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("No reasoning history found"));
+    }
+
+    #[test]
+    fn test_engram_stats_default() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_stats(Parameters(StatsParams {
+                by_file: None,
+                by_branch: None,
+                trend: None,
+                top: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("Engram Statistics"));
+        assert!(result.contains("2 engrams"));
+    }
+
+    #[test]
+    fn test_engram_stats_by_file() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_stats(Parameters(StatsParams {
+                by_file: Some(true),
+                by_branch: None,
+                trend: None,
+                top: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("Cost by File"));
+        assert!(result.contains("src/auth.rs"));
+    }
+
+    #[test]
+    fn test_engram_stats_trend() {
+        let (_tmp, server, _ids) = setup_test_server();
+
+        let result = server
+            .engram_stats(Parameters(StatsParams {
+                by_file: None,
+                by_branch: None,
+                trend: Some(true),
+                top: None,
+            }))
+            .unwrap();
+
+        assert!(result.contains("Cost Trend"));
+        assert!(result.contains("Total:"));
     }
 }

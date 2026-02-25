@@ -1,4 +1,5 @@
 pub mod blame;
+pub mod dead_ends;
 pub mod diff;
 pub mod fetch;
 pub mod gc;
@@ -19,6 +20,7 @@ pub mod show;
 pub mod stats;
 pub mod trace;
 pub mod version;
+pub mod why;
 
 use clap::Subcommand;
 
@@ -51,17 +53,21 @@ pub enum Commands {
     /// Fetch engram refs from a remote (no reindex)
     Fetch(fetch::FetchArgs),
     /// Show aggregate statistics across all engrams
-    Stats,
+    Stats(stats::StatsArgs),
     /// Start MCP server (stdio transport) for AI agent integration
     Mcp,
     /// Generate a PR description from the engram chain
     PrSummary(pr_summary::PrSummaryArgs),
     /// Garbage collect old engrams
     Gc(gc::GcArgs),
+    /// Surface dead ends and recurring rejected approaches
+    DeadEnds(dead_ends::DeadEndsArgs),
     /// Show reasoning blame for a file
     Blame(blame::BlameArgs),
     /// Rebuild the search index
     Reindex,
+    /// Explain why a file exists through its reasoning chain
+    Why(why::WhyArgs),
     /// Print version information
     Version,
     /// Internal: handle git hook callbacks

@@ -30,6 +30,11 @@ engram log --cost
 engram show HEAD --intent
 engram search "authentication"
 engram trace src/auth.rs
+engram why src/auth.rs                 # Rich narrative: why does this file exist?
+
+# Cost analytics
+engram stats --by-file --top 10
+engram stats --trend
 
 # Review by intent, not by diff
 engram review main..feature-branch
@@ -214,6 +219,39 @@ engram reindex
 
 The search index is automatically updated when creating or importing engrams.
 
+## Why Does This File Exist?
+
+Go beyond `git blame` (which shows *who* changed a file) to understand *why* it exists:
+
+```bash
+engram why src/auth.rs
+```
+
+Produces a rich narrative tracing the file's full reasoning chain — every session that touched it, what was requested, what goals were set, what was tried and rejected, and what decisions were made. The output reads like a story of the file's evolution.
+
+## Cost Analytics
+
+Understand where your AI agent spend is going:
+
+```bash
+engram stats                    # Aggregate totals
+engram stats --by-file --top 10 # Most expensive files
+engram stats --by-branch        # Cost per feature branch
+engram stats --trend            # Daily cost over last 30 days
+```
+
+## Recurring Dead-End Detection
+
+Find approaches that keep getting tried and rejected across sessions — Engram's unique moat:
+
+```bash
+engram dead-ends                # List all dead ends
+engram dead-ends --recurring    # Approaches rejected 2+ times
+engram dead-ends --query "auth" # Filter by text
+```
+
+When `--recurring` finds that the same approach has been tried and rejected multiple times, it tells you: stop trying this, here's what worked instead.
+
 ## Context Graph
 
 Engrams form a **context graph** -- a semantic reasoning layer over your codebase:
@@ -256,7 +294,7 @@ Expose engram data to AI agents via the [Model Context Protocol](https://modelco
 engram mcp
 ```
 
-Starts an MCP server on stdio with 6 tools:
+Starts an MCP server on stdio with 8 tools:
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
@@ -265,7 +303,9 @@ Starts an MCP server on stdio with 6 tools:
 | `engram_log` | `limit?`, `by_agent?` | List recent engrams with token usage and cost |
 | `engram_trace` | `file_path` | Chronological reasoning history for a specific file |
 | `engram_diff` | `id_a`, `id_b` | Compare two engrams: common/unique files, token and cost deltas |
-| `engram_dead_ends` | `id?`, `query?` | Surface rejected approaches and architectural decisions |
+| `engram_dead_ends` | `id?`, `query?`, `recurring?` | Surface rejected approaches; find recurring dead ends across sessions |
+| `engram_why` | `file_path`, `limit?` | Explain why a file exists through its full reasoning chain |
+| `engram_stats` | `by_file?`, `by_branch?`, `trend?`, `top?` | Aggregate statistics with breakdowns by file, branch, or daily trend |
 
 ### Claude Code
 
@@ -315,12 +355,14 @@ Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Applicat
 | `show`        | Show details of a specific engram (supports `HEAD`) |
 | `search`      | Full-text search across engrams |
 | `trace`       | Show reasoning history for a file |
+| `why`         | Explain why a file exists through its reasoning chain |
 | `diff`        | Compare two engrams |
 | `graph`       | Show the context graph (text or DOT) |
 | `review`      | Review intent chain for a branch range |
 | `pr-summary`  | Generate a PR description from the engram chain |
 | `mcp`         | Start MCP server (stdio) for AI agent integration |
-| `stats`       | Show aggregate statistics across all engrams |
+| `stats`       | Show aggregate statistics (`--by-file`, `--by-branch`, `--trend`, `--top N`) |
+| `dead-ends`   | Surface dead ends (`--recurring`, `--query`, `--id`) |
 | `blame`       | Show reasoning blame for a file |
 | `gc`          | Garbage collect old engrams (`--older-than`, `--dry-run`) |
 | `push`        | Push engram refs to a remote |
@@ -365,7 +407,7 @@ git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo build --workspace
 
-# Run tests (124 Rust + 10 Python + 7 TypeScript = 141 total)
+# Run tests (129 Rust + 10 Python + 7 TypeScript = 146 total)
 cargo test --workspace
 cd sdks/python && python3 -m pytest tests/
 cd sdks/typescript && npx vitest run
