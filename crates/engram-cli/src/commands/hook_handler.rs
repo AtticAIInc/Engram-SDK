@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::Args;
 use engram_capture::import::claude_code::ClaudeCodeImporter;
+use engram_capture::summarize::summarize_intent;
 use engram_core::config::EngramConfig;
 use engram_core::hooks;
 use engram_core::hooks::ActiveSession;
@@ -94,13 +95,18 @@ fn handle_session_end(storage: &GitStorage) {
         return;
     }
 
-    let data = match ClaudeCodeImporter::import_session(&transcript_path) {
+    let mut data = match ClaudeCodeImporter::import_session(&transcript_path) {
         Ok(d) => d,
         Err(e) => {
             tracing::debug!("session-end: failed to import session: {e}");
             return;
         }
     };
+
+    // Best-effort LLM summarization
+    if let Err(e) = summarize_intent(&mut data) {
+        tracing::debug!("session-end: LLM summarization failed: {e}");
+    }
 
     // Check for duplicates via source_hash
     if let Some(existing_id) = data
@@ -251,13 +257,18 @@ fn maybe_auto_capture(storage: &GitStorage, git_dir: &std::path::Path) {
     };
 
     // Import the session
-    let data = match ClaudeCodeImporter::import_session(&session_path) {
+    let mut data = match ClaudeCodeImporter::import_session(&session_path) {
         Ok(d) => d,
         Err(e) => {
             tracing::debug!("Auto-capture: failed to import session: {e}");
             return;
         }
     };
+
+    // Best-effort LLM summarization
+    if let Err(e) = summarize_intent(&mut data) {
+        tracing::debug!("Auto-capture: LLM summarization failed: {e}");
+    }
 
     // Check for duplicates — if already imported, reuse the existing engram ID
     let engram_id = if let Some(existing_id) = data

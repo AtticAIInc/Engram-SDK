@@ -68,6 +68,9 @@ schemars = "1"
 # Search
 tantivy = "0.22"
 
+# HTTP
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+
 # Config
 toml = "0.8"
 dirs = "6"

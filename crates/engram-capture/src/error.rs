@@ -22,4 +22,7 @@ pub enum CaptureError {
 
     #[error("Process exited with code {0}")]
     ProcessFailed(i32),
+
+    #[error("LLM summarization failed: {0}")]
+    LlmError(String),
 }

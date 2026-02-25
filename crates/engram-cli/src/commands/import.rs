@@ -6,6 +6,7 @@ use clap::{Args, ValueEnum};
 use engram_capture::import::aider::AiderImporter;
 use engram_capture::import::claude_code::ClaudeCodeImporter;
 use engram_capture::import::detect::detect_sources;
+use engram_capture::summarize::summarize_intent;
 use engram_core::storage::GitStorage;
 use engram_query::search::SearchEngine;
 
@@ -25,6 +26,10 @@ pub struct ImportArgs {
     /// Only show what would be imported (dry run)
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Skip LLM-powered summarization (uses heuristic extraction only)
+    #[arg(long)]
+    pub no_summarize: bool,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -59,7 +64,7 @@ pub fn run(args: &ImportArgs) -> Result<()> {
     }
 
     if args.auto_detect {
-        return run_auto_detect(&storage, args.dry_run);
+        return run_auto_detect(&storage, args.dry_run, args.no_summarize);
     }
 
     let path = args
@@ -78,7 +83,7 @@ pub fn run(args: &ImportArgs) -> Result<()> {
                 println!("  (dry run - no changes made)");
                 return Ok(());
             }
-            let data = ClaudeCodeImporter::import_session(path)
+            let mut data = ClaudeCodeImporter::import_session(path)
                 .context("Failed to parse Claude Code session")?;
             if let Some(existing) = check_duplicate(&storage, &data) {
                 println!(
@@ -86,6 +91,11 @@ pub fn run(args: &ImportArgs) -> Result<()> {
                     &existing.as_str()[..8]
                 );
                 return Ok(());
+            }
+            if !args.no_summarize {
+                if let Err(e) = summarize_intent(&mut data) {
+                    eprintln!("  Warning: LLM summarization failed: {e}");
+                }
             }
             let tokens = data.manifest.token_usage.total_tokens;
             let entries = data.transcript.entries.len();
@@ -106,13 +116,18 @@ pub fn run(args: &ImportArgs) -> Result<()> {
             }
             let engrams =
                 AiderImporter::import_history(path).context("Failed to parse Aider history")?;
-            for data in engrams {
+            for mut data in engrams {
                 if let Some(existing) = check_duplicate(&storage, &data) {
                     println!(
                         "  Skipped (already imported as {})",
                         &existing.as_str()[..8]
                     );
                     continue;
+                }
+                if !args.no_summarize {
+                    if let Err(e) = summarize_intent(&mut data) {
+                        eprintln!("  Warning: LLM summarization failed: {e}");
+                    }
                 }
                 let entries = data.transcript.entries.len();
                 let id = storage.create(&data).context("Failed to store engram")?;
@@ -129,7 +144,7 @@ pub fn run(args: &ImportArgs) -> Result<()> {
     Ok(())
 }
 
-fn run_auto_detect(storage: &GitStorage, dry_run: bool) -> Result<()> {
+fn run_auto_detect(storage: &GitStorage, dry_run: bool, no_summarize: bool) -> Result<()> {
     let workdir = storage
         .workdir()
         .ok_or_else(|| anyhow::anyhow!("Cannot determine working directory"))?;
@@ -163,7 +178,7 @@ fn run_auto_detect(storage: &GitStorage, dry_run: bool) -> Result<()> {
         match source {
             engram_capture::import::detect::ImportSource::ClaudeCode { session_path } => {
                 match ClaudeCodeImporter::import_session(session_path) {
-                    Ok(data) => {
+                    Ok(mut data) => {
                         if let Some(existing) = check_duplicate(storage, &data) {
                             println!(
                                 "  Skipped {} (already imported as {})",
@@ -171,6 +186,11 @@ fn run_auto_detect(storage: &GitStorage, dry_run: bool) -> Result<()> {
                                 &existing.as_str()[..8]
                             );
                             continue;
+                        }
+                        if !no_summarize {
+                            if let Err(e) = summarize_intent(&mut data) {
+                                eprintln!("  Warning: LLM summarization failed: {e}");
+                            }
                         }
                         let entries = data.transcript.entries.len();
                         let tokens = data.manifest.token_usage.total_tokens;
@@ -198,13 +218,18 @@ fn run_auto_detect(storage: &GitStorage, dry_run: bool) -> Result<()> {
             engram_capture::import::detect::ImportSource::Aider { history_path } => {
                 match AiderImporter::import_history(history_path) {
                     Ok(engrams) => {
-                        for data in engrams {
+                        for mut data in engrams {
                             if let Some(existing) = check_duplicate(storage, &data) {
                                 println!(
                                     "  Skipped aider session (already imported as {})",
                                     &existing.as_str()[..8]
                                 );
                                 continue;
+                            }
+                            if !no_summarize {
+                                if let Err(e) = summarize_intent(&mut data) {
+                                    eprintln!("  Warning: LLM summarization failed: {e}");
+                                }
                             }
                             let entries = data.transcript.entries.len();
                             match storage.create(&data) {
