@@ -6,41 +6,28 @@ Git commits capture *what* changed but discard *why*. When AI agents code, the r
 
 Each **engram** is a discrete unit of reasoning memory: the full session transcript, human intent, agent decisions, tool calls, dead ends explored, and token economics -- linked to the Git commits it produced.
 
-For Full Documentation and Guides, Visit: https://the-attic-ai.gitbook.io/untitled/
+For full documentation and guides, visit: https://the-attic-ai.gitbook.io/untitled/
 
 ## Quick Start
 
 ```bash
-# Install from source
+# Install
 git clone https://github.com/AtticAIInc/Engram-SDK.git
-cd Engram-SDK
-cargo install --path crates/engram-cli
+cd Engram-SDK && cargo install --path crates/engram-cli
 
-# Initialize in your repo (with automatic Claude Code capture)
-engram init --claude-code
+# Initialize in your repo (all automation enabled by default)
+engram init
 
-# Record an agent session (wraps any agent command in a PTY)
-engram record -- claude "add OAuth2 authentication"
+# That's it. Now use Claude Code normally — sessions are auto-captured,
+# commits are auto-annotated, and engram refs auto-push with your code.
 
-# Import existing sessions from Claude Code or Aider
-engram import --auto-detect
-
-# Explore reasoning history
+# Explore your reasoning history
 engram log --cost
 engram show HEAD --intent
 engram search "authentication"
-engram trace src/auth.rs
-engram why src/auth.rs                 # Rich narrative: why does this file exist?
-
-# Cost analytics
-engram stats --by-file --top 10
+engram why src/auth.rs
 engram stats --trend
-
-# Review by intent, not by diff
-engram review main..feature-branch
-
-# Push reasoning alongside code
-engram push
+git loge                             # View reasoning inline on commits
 ```
 
 ## Why Engram?
@@ -52,44 +39,67 @@ def456 Fix middleware ordering bug
 789abc Refactor auth to use sessions
 ```
 
-**With Engram**, every commit carries its reasoning:
+**With Engram**, every commit carries its reasoning (`git loge`):
 ```
-abc123 Add OAuth2 with PKCE flow [claude-code/claude-sonnet-4-5] $0.23 47832tok
-  Intent: "Add OAuth2 authentication with PKCE for our SPA"
-  Summary: Implemented OAuth2 with PKCE using custom middleware. Added
-           token refresh, CSRF protection, and session management.
-  Dead ends: Tried passport.js (middleware conflict), considered Auth0
-             SDK (added 2MB to bundle, decided against).
-  Files: +src/auth.rs +src/middleware/oauth.rs ~src/routes/api.rs
+abc123 Add OAuth2 with PKCE flow
 
-def456 Fix middleware ordering bug
-  Intent: "The auth middleware runs after the rate limiter, causing 401s"
-  Summary: Reordered middleware stack. Auth must run before rate limiting.
-  Related: Follows from abc123 (the original auth implementation)
+    Engram-Id: a1b2c3d4...
+    Engram-Agent: claude-code
+    Engram-Model: claude-sonnet-4-5
+    Engram-Tokens: 47832
+    Engram-Cost: $0.23
+
+Notes (engram):
+    [claude-code/claude-sonnet-4-5] $0.23 47832tok
+    Intent: "Add OAuth2 authentication with PKCE for our SPA"
+    Summary: Implemented OAuth2 with PKCE using custom middleware
+    Dead ends:
+      - passport.js: Middleware conflict with existing stack
+    Decisions:
+      - Custom middleware over Auth0 SDK: Auth0 added 2MB to bundle
+    Files: +auth.rs +oauth.rs ~api.rs
 ```
 
 This is **institutional knowledge** that compounds. When the next agent (or human) touches auth, they see the full reasoning chain -- what was tried, what was rejected, and why.
 
+## What `engram init` Enables
+
+Running `engram init` sets up everything automatically:
+
+| Feature | Default | Opt-out flag |
+|---------|---------|--------------|
+| **Auto-capture**: Claude Code sessions imported on commit | ON | `--no-auto-capture` |
+| **Auto-push**: Engram refs sync when you `git push` | ON | `--no-auto-push` |
+| **Claude Code hook**: Sessions auto-imported on exit | ON | `--no-claude-code` |
+| **Git notes**: Reasoning attached to commits, viewable via `git loge` | ON | — |
+| **Commit trailers**: `Engram-Id`, `Engram-Agent`, `Engram-Model`, `Engram-Tokens`, `Engram-Cost` | ON | — |
+
+Existing git hooks are preserved -- engram chains after them via `.pre-engram` backups. All hooks fail silently to never break your workflow.
+
 ## Three Capture Modes
 
-### Mode 1: Wrapper (any agent)
+### Mode 1: Automatic (Claude Code)
+
+Just run `engram init` and use Claude Code normally. Sessions are captured automatically via the `SessionEnd` hook when Claude Code exits, and via the `prepare-commit-msg` hook when you commit. No ongoing effort.
+
+### Mode 2: Wrapper (any agent)
 ```bash
 engram record -- claude "add auth"
 engram record -- aider --model gpt-4o
 engram record -- cursor-cli "fix the bug"
 ```
-Spawns your agent in a PTY, captures output, detects file changes via SHA256 snapshots. File change detection respects `.gitignore`, `.git/info/exclude`, and global gitignore rules.
+Spawns your agent in a PTY, captures output, detects file changes via SHA256 snapshots. Respects `.gitignore`, `.git/info/exclude`, and global gitignore rules.
 
-### Mode 2: Session Import
+### Mode 3: Session Import
 ```bash
 engram import --auto-detect                              # Find and import from known agents
 engram import ~/.claude/projects/.../session.jsonl --format claude-code
 engram import .aider.chat.history.md --format aider
 engram import --dry-run                                  # Preview what would be imported
 ```
-Parses Claude Code JSONL sessions and Aider chat history markdown. Extracts transcripts, tool calls, token usage, and file changes. Re-importing the same file is safe -- duplicate detection via content hashing prevents double imports.
+Parses Claude Code JSONL sessions and Aider chat history markdown. Re-importing the same file is safe -- duplicate detection via content hashing prevents double imports.
 
-### Mode 3: SDK Integration
+### Mode 4: SDK Integration
 
 **Rust:**
 ```rust
@@ -146,22 +156,110 @@ Engrams are stored as native Git objects -- they travel with `clone`, `push`, `p
       lineage.json         # Relationships to other engrams
 ```
 
-Engrams sync alongside code:
+Engrams sync alongside code (automatically if auto-push is enabled, or manually):
 ```bash
 engram push              # Push engram refs to remote
 engram pull              # Fetch engram refs and reindex
 engram fetch             # Fetch only (no reindex)
 ```
 
-## Claude Code Auto-Capture
+## Git Notes: Reasoning on Commits
 
-Automatically capture every Claude Code session as an engram -- zero ongoing effort:
+Engram attaches rich reasoning metadata as [git notes](https://git-scm.com/docs/git-notes) to your commits. Notes are automatically attached when Claude Code's SessionEnd hook fires, and during `engram init` for any existing linked commits.
 
 ```bash
-engram init --claude-code
+# Retroactively annotate commits (also runs automatically during init)
+engram annotate                    # All commits linked to engrams
+engram annotate main..HEAD         # Only commits in a range
+engram annotate --dry-run          # Preview what would be annotated
+engram annotate --force            # Overwrite existing notes
+
+# View annotated commits
+git loge                           # Alias installed by `engram init`
+git log --notes=engram             # Standard git equivalent
 ```
 
-This installs a `SessionEnd` hook in `.claude/settings.json` that fires when Claude Code exits. The hook reads the session transcript and imports it as an engram with full deduplication. Works on both fresh repos and repos already initialized with engram.
+Notes sync alongside engram refs during push/pull via `refs/notes/engram` refspecs.
+
+## Search and Query
+
+Full-text search powered by Tantivy, stored at `.git/engram-index/`:
+
+```bash
+engram search "authentication"
+engram search "database migration" -n 20
+engram trace src/auth.rs           # Reasoning history of a file
+engram diff abc123 def456          # Compare two engrams
+engram reindex                     # Rebuild search index
+```
+
+The search index is automatically updated when creating or importing engrams.
+
+## Why Does This File Exist?
+
+Go beyond `git blame` (which shows *who* changed a file) to understand *why* it exists:
+
+```bash
+engram why src/auth.rs
+```
+
+Produces a rich narrative tracing the file's full reasoning chain -- every session that touched it, what was requested, what was tried and rejected, and what decisions were made.
+
+## Cost Analytics
+
+Understand where your AI agent spend is going:
+
+```bash
+engram stats                    # Aggregate totals
+engram stats --by-file --top 10 # Most expensive files
+engram stats --by-branch        # Cost per feature branch
+engram stats --trend            # Daily cost over last 30 days
+```
+
+Even when your agent doesn't report costs directly (e.g. Claude Code imports), engram estimates costs from the model name and token counts using built-in API pricing tables. Supports Claude (Opus, Sonnet, Haiku), GPT-4o/4-turbo/4/3.5, and o1/o3 models with cache-aware pricing. Explicit cost data takes priority when available.
+
+## Recurring Dead-End Detection
+
+Find approaches that keep getting tried and rejected across sessions:
+
+```bash
+engram dead-ends                # List all dead ends
+engram dead-ends --recurring    # Approaches rejected 2+ times
+engram dead-ends --query "auth" # Filter by text
+```
+
+When `--recurring` finds that the same approach has been tried and rejected multiple times, it tells you: stop trying this, here's what worked instead.
+
+## Intent-Based Review
+
+```bash
+engram review main..feature-branch
+```
+
+Instead of line-by-line code review, read the chain of intents and summaries. See what was asked, what was done, what dead ends were explored, and what architectural decisions were made. Includes aggregate token usage and cost.
+
+## PR Summary
+
+Auto-generate structured PR descriptions from the engram chain:
+
+```bash
+engram pr-summary main..feature-branch
+engram pr-summary main..feature-branch --format json
+```
+
+Outputs a markdown PR description with summary, file changes, reasoning chain, dead ends, and token economics.
+
+## Context Graph
+
+Engrams form a **context graph** -- a semantic reasoning layer over your codebase:
+
+```bash
+engram graph
+engram graph file:src/auth.rs --depth 2
+engram graph --dot | dot -Tsvg -o graph.svg
+```
+
+Nodes are engrams, files, agents, and commits. Edges are "modified by", "used agent", "follows from", "touched file", "produced by".
 
 ## GitHub Action
 
@@ -187,148 +285,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The action fetches engram refs, runs `engram pr-summary`, and posts a sticky comment with the reasoning chain, files changed, dead ends explored, and token economics. If no engrams are found, it posts a helpful onboarding message instead.
-
-## Git Hooks Integration
-
-When you run `engram init`, git hooks are automatically installed:
-
-- **prepare-commit-msg**: Injects `Engram-Id:`, `Engram-Agent:`, `Engram-Model:`, `Engram-Tokens:`, and `Engram-Cost:` trailers into commit messages during active recording sessions
-- **post-commit**: Links new commit SHAs to the active session for automatic commit tracking
-
-Existing hooks are preserved -- engram chains after them via `.pre-engram` backups. Hooks fail silently to never break your git workflow.
-
-## Git Notes: Reasoning on Commits
-
-Engram attaches rich reasoning metadata as [git notes](https://git-scm.com/docs/git-notes) to your commits:
-
-```bash
-# Annotate commits with engram reasoning (retroactive, non-destructive)
-engram annotate                    # All commits linked to engrams
-engram annotate main..HEAD         # Only commits in a range
-engram annotate --dry-run          # Preview what would be annotated
-engram annotate --force            # Overwrite existing notes
-
-# View annotated commits
-git log --notes=engram             # Standard git, shows notes inline
-git loge                           # Alias installed by `engram init`
-```
-
-Notes appear inline in `git log` output:
-```
-commit abc1234
-Author: Developer <dev@example.com>
-
-    Add OAuth2 with PKCE flow
-
-    Engram-Id: a1b2c3d4...
-    Engram-Agent: claude-code
-    Engram-Model: claude-sonnet-4-5
-    Engram-Tokens: 1100000
-    Engram-Cost: $4.50
-
-Notes (engram):
-    [claude-code/claude-sonnet-4-5] $4.50 1100000tok
-    Intent: "Add OAuth2 authentication with PKCE for our SPA"
-    Summary: Implemented OAuth2 with PKCE using custom middleware
-    Dead ends:
-      - passport.js: Middleware conflict with existing stack
-    Decisions:
-      - Custom middleware over Auth0 SDK: Auth0 added 2MB to bundle
-    Files: +auth.rs +oauth.rs ~api.rs
-```
-
-Notes are automatically attached when Claude Code's SessionEnd hook fires. Notes sync alongside engram refs during push/pull via `refs/notes/engram` refspecs.
-
-## Search and Query
-
-Full-text search powered by Tantivy, stored at `.git/engram-index/`:
-
-```bash
-# Search across intent, transcript, file paths, dead ends
-engram search "authentication"
-engram search "database migration" -n 20
-
-# Trace the full reasoning history of a file
-engram trace src/auth.rs
-
-# Compare two engrams (files, tokens, cost)
-engram diff abc123 def456
-
-# Rebuild search index from scratch
-engram reindex
-```
-
-The search index is automatically updated when creating or importing engrams.
-
-## Why Does This File Exist?
-
-Go beyond `git blame` (which shows *who* changed a file) to understand *why* it exists:
-
-```bash
-engram why src/auth.rs
-```
-
-Produces a rich narrative tracing the file's full reasoning chain — every session that touched it, what was requested, what goals were set, what was tried and rejected, and what decisions were made. The output reads like a story of the file's evolution.
-
-## Cost Analytics
-
-Understand where your AI agent spend is going:
-
-```bash
-engram stats                    # Aggregate totals
-engram stats --by-file --top 10 # Most expensive files
-engram stats --by-branch        # Cost per feature branch
-engram stats --trend            # Daily cost over last 30 days
-```
-
-**Automatic cost estimation**: Even when your agent doesn't report costs directly (e.g. Claude Code imports), engram estimates costs from the model name and token counts using built-in API pricing tables. Supports Claude (Opus, Sonnet, Haiku across 3.x/3.5/4.x), GPT-4o/4-turbo/4/3.5, and o1/o3 models with full cache-aware pricing (separate rates for cache reads and writes). If explicit cost data is available, that takes priority.
-
-## Recurring Dead-End Detection
-
-Find approaches that keep getting tried and rejected across sessions — Engram's unique moat:
-
-```bash
-engram dead-ends                # List all dead ends
-engram dead-ends --recurring    # Approaches rejected 2+ times
-engram dead-ends --query "auth" # Filter by text
-```
-
-When `--recurring` finds that the same approach has been tried and rejected multiple times, it tells you: stop trying this, here's what worked instead.
-
-## Context Graph
-
-Engrams form a **context graph** -- a semantic reasoning layer over your codebase:
-
-```bash
-# Explore connections between engrams, files, and agents
-engram graph
-engram graph file:src/auth.rs --depth 2
-
-# Export as Graphviz DOT format
-engram graph --dot | dot -Tsvg -o graph.svg
-```
-
-Nodes are engrams, files, agents, and commits. Edges are "modified by", "used agent", "follows from", "touched file", "produced by".
-
-## Intent-Based Review
-
-```bash
-engram review main..feature-branch
-```
-
-Instead of line-by-line code review, read the chain of intents and summaries. See what was asked, what was done, what dead ends were explored, and what architectural decisions were made. Includes aggregate token usage and cost.
-
-## PR Summary
-
-Auto-generate structured PR descriptions from the engram chain:
-
-```bash
-engram pr-summary main..feature-branch
-engram pr-summary main..feature-branch --format json
-```
-
-Outputs a markdown PR description with summary, file changes, reasoning chain, dead ends, and token economics.
+The action fetches engram refs, runs `engram pr-summary`, and posts a sticky comment with the reasoning chain, files changed, dead ends explored, and token economics.
 
 ## MCP Server
 
@@ -340,22 +297,20 @@ engram mcp
 
 Starts an MCP server on stdio with 8 tools:
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `engram_search` | `query`, `limit?` | Full-text search across intent, transcript, file paths, and dead ends |
-| `engram_show` | `id` (or `"HEAD"`) | Show full engram details: manifest, intent, file changes, decisions |
-| `engram_log` | `limit?`, `by_agent?` | List recent engrams with token usage and cost |
-| `engram_trace` | `file_path` | Chronological reasoning history for a specific file |
-| `engram_diff` | `id_a`, `id_b` | Compare two engrams: common/unique files, token and cost deltas |
-| `engram_dead_ends` | `id?`, `query?`, `recurring?` | Surface rejected approaches; find recurring dead ends across sessions |
-| `engram_why` | `file_path`, `limit?` | Explain why a file exists through its full reasoning chain |
-| `engram_stats` | `by_file?`, `by_branch?`, `trend?`, `top?` | Aggregate statistics with breakdowns by file, branch, or daily trend |
+| Tool | Description |
+|------|-------------|
+| `engram_search` | Full-text search across intent, transcript, file paths, and dead ends |
+| `engram_show` | Show full engram details (supports `"HEAD"` for most recent) |
+| `engram_log` | List recent engrams with token usage and cost |
+| `engram_trace` | Chronological reasoning history for a specific file |
+| `engram_diff` | Compare two engrams: common/unique files, token and cost deltas |
+| `engram_dead_ends` | Surface rejected approaches; find recurring dead ends |
+| `engram_why` | Explain why a file exists through its full reasoning chain |
+| `engram_stats` | Aggregate statistics by file, branch, or daily trend |
 
 ### Claude Code
 
-Repos that include a `.mcp.json` file (like this one) are auto-configured — Claude Code will discover and start the engram MCP server automatically. No manual setup needed.
-
-To add engram MCP to any repo, create `.mcp.json` at the repo root:
+Repos with a `.mcp.json` file are auto-configured -- Claude Code discovers and starts the engram MCP server automatically. To add to any repo, create `.mcp.json` at the root:
 
 ```json
 {
@@ -392,27 +347,27 @@ Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Applicat
 
 | Command       | Description |
 |---------------|-------------|
-| `init`        | Initialize engram in a Git repository (`--remote`, `--force`, `--claude-code`). Installs `git loge` alias. |
+| `init`        | Initialize engram with smart defaults (`--no-auto-capture`, `--no-auto-push`, `--no-claude-code` to opt out) |
 | `record`      | Record an agent session via PTY wrapper (`--agent`, `--model`) |
-| `import`      | Import sessions from Claude Code or Aider (with dedup) |
-| `log`         | List engrams (most recent first) (`--cost`, `--by-agent`) |
-| `show`        | Show details of a specific engram (supports `HEAD`) |
-| `search`      | Full-text search across engrams |
+| `import`      | Import sessions from Claude Code or Aider (`--auto-detect`, `--dry-run`) |
+| `log`         | List engrams (`--cost`, `--by-agent`, `--limit N`) |
+| `show`        | Show engram details (`HEAD`, `--intent`, `--transcript`, `--operations`) |
+| `search`      | Full-text search across engrams (`-n` limit) |
 | `trace`       | Show reasoning history for a file |
 | `why`         | Explain why a file exists through its reasoning chain |
-| `diff`        | Compare two engrams |
-| `graph`       | Show the context graph (text or DOT) |
+| `diff`        | Compare two engrams (files, tokens, cost) |
+| `graph`       | Show the context graph (`--dot` for Graphviz) |
 | `review`      | Review intent chain for a branch range |
 | `pr-summary`  | Generate a PR description from the engram chain |
 | `mcp`         | Start MCP server (stdio) for AI agent integration |
-| `stats`       | Show aggregate statistics (`--by-file`, `--by-branch`, `--trend`, `--top N`) |
+| `stats`       | Aggregate statistics (`--by-file`, `--by-branch`, `--trend`, `--top N`) |
 | `dead-ends`   | Surface dead ends (`--recurring`, `--query`, `--id`) |
+| `annotate`    | Attach engram reasoning as git notes (`--dry-run`, `--force`, range) |
 | `blame`       | Show reasoning blame for a file |
 | `gc`          | Garbage collect old engrams (`--older-than`, `--dry-run`) |
 | `push`        | Push engram refs to a remote |
 | `pull`        | Pull engram refs and reindex |
 | `fetch`       | Fetch engram refs from a remote |
-| `annotate`    | Attach engram reasoning as git notes to commits (`--dry-run`, `--force`, range) |
 | `reindex`     | Rebuild the search index |
 | `version`     | Print version information |
 
@@ -437,6 +392,7 @@ sdks/
 ### Design Principles
 
 - **Git-native**: Engrams are Git objects (blobs, trees, commits, refs). No external database.
+- **Smart defaults**: `engram init` enables all automation. Opt out, not in.
 - **Zero config remotes**: Engram refs sync with standard `git push`/`fetch` via refspecs.
 - **Vendored dependencies**: git2 with vendored libgit2 + OpenSSL. No system deps beyond a C compiler.
 - **No unsafe code**: `unsafe_code = "forbid"` workspace-wide.
@@ -447,7 +403,6 @@ sdks/
 ## Building from Source
 
 ```bash
-# Clone and build
 git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo build --workspace
@@ -460,7 +415,7 @@ cd sdks/typescript && npx vitest run
 # Lint
 cargo clippy --workspace -- -D warnings
 
-# Install the CLI
+# Install
 cargo install --path crates/engram-cli
 ```
 

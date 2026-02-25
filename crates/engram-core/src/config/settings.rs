@@ -41,12 +41,13 @@ impl EngramConfig {
     }
 
     /// Default config for `engram init`.
+    /// All automation features are ON by default — opt out with CLI flags.
     pub fn default_init() -> Self {
         Self {
             enabled: true,
-            auto_capture: false,
+            auto_capture: true,
             default_agent: None,
-            push_on_push: false,
+            push_on_push: true,
         }
     }
 }
@@ -115,8 +116,8 @@ mod tests {
     fn test_default_init() {
         let config = EngramConfig::default_init();
         assert!(config.enabled);
-        assert!(!config.auto_capture);
-        assert!(!config.push_on_push);
+        assert!(config.auto_capture);
+        assert!(config.push_on_push);
         assert!(config.default_agent.is_none());
     }
 
