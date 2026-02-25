@@ -13,7 +13,7 @@ Engram captures AI agent reasoning as first-class, versioned data in Git. Each "
 ```bash
 source "$HOME/.cargo/env"             # Ensure cargo is on PATH
 cargo build --workspace               # Build all crates
-cargo test --workspace                # Run all Rust tests (156 currently)
+cargo test --workspace                # Run all Rust tests (161 currently)
 cargo test -p engram-core             # Test a single crate
 cargo clippy --workspace -- -D warnings  # Lint (zero warnings policy)
 cargo fmt --all -- --check            # Format check
@@ -30,7 +30,7 @@ cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 cd sdks/typescript && npm install && npx vitest run
 ```
 
-**Total test count: 156 Rust + 10 Python + 7 TypeScript = 173 tests.**
+**Total test count: 161 Rust + 10 Python + 7 TypeScript = 178 tests.**
 
 ## Architecture
 
@@ -45,14 +45,14 @@ crates/engram-sdk/       Fluent Rust SDK: EngramSession::begin() -> log_*() -> c
 crates/engram-mcp/       MCP server for AI agent integration (rmcp crate, stdio transport)
 crates/engram-dashboard/ Web dashboard: axum server with embedded SPA for browsing engrams and cost analytics
 crates/engram-tui/       Interactive TUI: ratatui terminal browser with split-panel layout
-crates/engram-cli/       CLI binary (installed as `engram`) — 27 public subcommands + 1 hidden
+crates/engram-cli/       CLI binary (installed as `engram`) — 28 public subcommands + 1 hidden
 sdks/python/             Python SDK (git CLI), install with pip
 sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with npm
 ```
 
-### CLI Commands (28 total)
+### CLI Commands (29 total)
 
-`init`, `record`, `import`, `log`, `show`, `search`, `trace`, `why`, `diff`, `graph`, `review`, `pr-summary`, `mcp`, `stats`, `dead-ends`, `annotate`, `blame`, `audit`, `browse`, `dashboard`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
+`init`, `config`, `record`, `import`, `log`, `show`, `search`, `trace`, `why`, `diff`, `graph`, `review`, `pr-summary`, `mcp`, `stats`, `dead-ends`, `annotate`, `blame`, `audit`, `browse`, `dashboard`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
 
 ### engram-core structure
 
@@ -65,7 +65,7 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
   - `objects.rs` — Creates Git blobs, trees, and commits for an engram
   - `refs.rs` — Manages refs under `refs/engrams/<ab>/<full-id>` with fanout
   - `read.rs` — Reads engram data back from Git objects
-- `src/config/` — `EngramConfig` in `.git/config` under `[engram]`; `GlobalConfig` at `~/.config/engram/repos.toml` for cross-repo search
+- `src/config/` — `EngramConfig` in `.git/config` under `[engram]`; `GlobalConfig` at `~/.config/engram/repos.toml` for cross-repo search and global settings. `Settings` struct holds `anthropic_api_key` and `summarize_model` with env var precedence.
 - `src/pricing.rs` — Static model pricing table (Anthropic + OpenAI) with `estimate_cost()`. `TokenUsage::effective_cost(model)` returns explicit cost if set, else estimates from pricing.
 - `src/notes.rs` — Git notes formatting: `format_note(data: &EngramData) -> String` for attaching reasoning metadata to commits. Uses `refs/notes/engram` namespace.
 - `src/error.rs` — `CoreError` enum (thiserror), includes `InvalidId` variant
@@ -112,7 +112,8 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 - **Line-level why**: `engram why file:line` parses the last `:` to detect line numbers, uses `git2::blame_file()` to find the responsible commit, then `find_by_commit_sha()` to map to an engram. Falls back to file-level why if no engram matches.
 - **Audit trail**: `engram audit [range]` walks `git2::Revwalk` for a commit range, extracts `Engram-Id` trailers, maps to engram data, outputs JSON/Markdown/CSV reports with coverage stats.
 - **Cross-repo search**: Global config at `~/.config/engram/repos.toml` (via `toml` + `dirs` crates). `engram init` auto-registers repos. `engram search --global` walks all registered repos, opens each search index, merges results by score.
-- **LLM summarization**: `engram-capture/src/summarize.rs` calls Claude Haiku (`claude-haiku-4-5-20251001`) via `reqwest` blocking client to enrich intent fields at import time. Uses `ANTHROPIC_API_KEY` env var; model overridable via `ENGRAM_SUMMARIZE_MODEL`. Prompt sends condensed transcript (user messages full, assistant text 500 chars, tool_use name + brief input, thinking 300 chars, skips tool_result) capped at 50k chars. Response is structured JSON with `summary`, `interpreted_goal`, `dead_ends[]`, `decisions[]`. Integrated into all import paths: `engram import`, `--auto-detect`, `session-end` hook, and auto-capture. `--no-summarize` flag disables it. All failures fall back silently to heuristic extraction.
+- **LLM summarization**: `engram-capture/src/summarize.rs` calls Claude Haiku (`claude-haiku-4-5-20251001`) via `reqwest` blocking client to enrich intent fields at import time. API key resolved via: env var `ANTHROPIC_API_KEY` → `GlobalConfig.settings.anthropic_api_key` → skip. Model resolved via: env var `ENGRAM_SUMMARIZE_MODEL` → `GlobalConfig.settings.summarize_model` → default. Prompt sends condensed transcript (user messages full, assistant text 500 chars, tool_use name + brief input, thinking 300 chars, skips tool_result) capped at 50k chars. Response is structured JSON with `summary`, `interpreted_goal`, `dead_ends[]`, `decisions[]`. Integrated into all import paths: `engram import`, `--auto-detect`, `session-end` hook, and auto-capture. `--no-summarize` flag disables it. All failures fall back silently to heuristic extraction.
+- **Config command**: `engram config` with `set`/`get`/`list`/`path` subcommands. Manages `GlobalConfig.settings` in `~/.config/engram/repos.toml`. API keys masked in output (first 4 + last 4 chars). Config file gets 0600 permissions on Unix since it may contain API keys. `engram init` shows LLM summarize status and hints about API key setup when not configured.
 - **Dashboard**: `engram-dashboard` crate with axum 0.8 + tower-http 0.6. HTML/JS SPA embedded via `include_str!()` — single binary, no external files. JSON API for engrams, stats, trends, search.
 - **TUI browser**: `engram-tui` crate with ratatui 0.29 + crossterm 0.28. Split-panel layout, inline search, keyboard navigation. Detail panel shows intent, file changes, dead ends, decisions.
 - **GitHub Action**: Composite action at `action/action.yml` downloads pre-built binaries from GitHub Releases, runs `engram pr-summary`, and posts sticky PR comments via `marocchino/sticky-pull-request-comment@v2`. Release workflow at `.github/workflows/release.yml` cross-compiles for linux-musl (x64/arm64 via `cross`) and macOS (x64/arm64 native).

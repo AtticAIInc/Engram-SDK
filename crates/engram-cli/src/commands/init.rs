@@ -122,6 +122,22 @@ pub fn run(args: &InitArgs) -> Result<()> {
         println!("{off} (could not detect working directory)");
     }
 
+    let has_api_key = std::env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+        .is_some()
+        || GlobalConfig::load()
+            .ok()
+            .and_then(|c| c.settings.anthropic_api_key)
+            .is_some();
+
+    print!("  LLM summarize:    ");
+    if has_api_key {
+        println!("{on} (API key configured)");
+    } else {
+        println!("{off} (set API key for enhanced summaries)");
+    }
+
     println!("  Git notes alias:  {on} (use `git loge` to view reasoning)");
 
     if annotated > 0 {
@@ -133,6 +149,14 @@ pub fn run(args: &InitArgs) -> Result<()> {
     println!("  engram log                         List captured engrams");
     println!("  engram search \"query\"              Search reasoning history");
     println!("  engram why src/file.rs             Why does this file exist?");
+
+    if !has_api_key {
+        println!();
+        println!("Tip: Set an API key to enable LLM-powered summarization:");
+        println!("  engram config set anthropic_api_key sk-ant-...");
+        println!("  (or set ANTHROPIC_API_KEY environment variable)");
+    }
+
     Ok(())
 }
 

@@ -43,6 +43,7 @@ fn main() -> Result<()> {
 
     match &cli.command {
         commands::Commands::Init(args) => commands::init::run(args),
+        commands::Commands::Config(args) => commands::config::run(args),
         commands::Commands::Record(args) => commands::record::run(args),
         commands::Commands::Import(args) => commands::import::run(args),
         commands::Commands::Log(args) => commands::log::run(args, cli.format),

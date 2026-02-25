@@ -2,6 +2,7 @@ pub mod annotate;
 pub mod audit;
 pub mod blame;
 pub mod browse;
+pub mod config;
 pub mod dashboard;
 pub mod dead_ends;
 pub mod diff;
@@ -32,6 +33,8 @@ use clap::Subcommand;
 pub enum Commands {
     /// Initialize engram in the current Git repository
     Init(init::InitArgs),
+    /// Manage global engram configuration
+    Config(config::ConfigArgs),
     /// Record an agent session (wraps any command in a PTY)
     Record(record::RecordArgs),
     /// Import sessions from known agent formats

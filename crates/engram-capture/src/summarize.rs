@@ -37,19 +37,39 @@ Rules:
 
 /// Enhance intent fields in an EngramData using LLM summarization.
 ///
-/// If `ANTHROPIC_API_KEY` is not set or the API call fails, this is a no-op.
+/// Checks for API key in this order:
+/// 1. `ANTHROPIC_API_KEY` environment variable
+/// 2. `anthropic_api_key` in global config (`~/.config/engram/repos.toml`)
+///
+/// If neither is set or the API call fails, this is a no-op.
 /// The existing heuristic-extracted fields are left unchanged in that case.
 pub fn summarize_intent(data: &mut EngramData) -> Result<(), CaptureError> {
+    // Load global config for fallback API key / model (best-effort)
+    let global_config = engram_core::config::GlobalConfig::load().ok();
+
     let api_key = match std::env::var("ANTHROPIC_API_KEY") {
         Ok(k) if !k.is_empty() => k,
-        _ => {
-            tracing::debug!("ANTHROPIC_API_KEY not set, skipping LLM summarization");
-            return Ok(());
-        }
+        _ => match global_config
+            .as_ref()
+            .and_then(|c| c.settings.anthropic_api_key.clone())
+        {
+            Some(k) if !k.is_empty() => k,
+            _ => {
+                tracing::debug!("No API key found (env or config), skipping LLM summarization");
+                return Ok(());
+            }
+        },
     };
 
-    let model =
-        std::env::var("ENGRAM_SUMMARIZE_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+    let model = std::env::var("ENGRAM_SUMMARIZE_MODEL")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            global_config
+                .as_ref()
+                .and_then(|c| c.settings.summarize_model.clone())
+        })
+        .unwrap_or_else(|| DEFAULT_MODEL.to_string());
 
     let user_message = build_prompt(data);
 
