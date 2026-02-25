@@ -13,7 +13,7 @@ Engram captures AI agent reasoning as first-class, versioned data in Git. Each "
 ```bash
 source "$HOME/.cargo/env"             # Ensure cargo is on PATH
 cargo build --workspace               # Build all crates
-cargo test --workspace                # Run all Rust tests (143 currently)
+cargo test --workspace                # Run all Rust tests (147 currently)
 cargo test -p engram-core             # Test a single crate
 cargo clippy --workspace -- -D warnings  # Lint (zero warnings policy)
 cargo fmt --all -- --check            # Format check
@@ -30,7 +30,7 @@ cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 cd sdks/typescript && npm install && npx vitest run
 ```
 
-**Total test count: 143 Rust + 10 Python + 7 TypeScript = 160 tests.**
+**Total test count: 147 Rust + 10 Python + 7 TypeScript = 164 tests.**
 
 ## Architecture
 
@@ -43,14 +43,14 @@ crates/engram-query/     Tantivy full-text search index, file tracing, engram di
 crates/engram-protocol/  Push/pull/fetch engram refs between repos via Git refspecs
 crates/engram-sdk/       Fluent Rust SDK: EngramSession::begin() -> log_*() -> commit()
 crates/engram-mcp/       MCP server for AI agent integration (rmcp crate, stdio transport)
-crates/engram-cli/       CLI binary (installed as `engram`) — 22 public subcommands + 1 hidden
+crates/engram-cli/       CLI binary (installed as `engram`) — 23 public subcommands + 1 hidden
 sdks/python/             Python SDK (git CLI), install with pip
 sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with npm
 ```
 
-### CLI Commands (23 total)
+### CLI Commands (24 total)
 
-`init`, `record`, `import`, `log`, `show`, `search`, `trace`, `why`, `diff`, `graph`, `review`, `pr-summary`, `mcp`, `stats`, `dead-ends`, `blame`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
+`init`, `record`, `import`, `log`, `show`, `search`, `trace`, `why`, `diff`, `graph`, `review`, `pr-summary`, `mcp`, `stats`, `dead-ends`, `annotate`, `blame`, `gc`, `push`, `pull`, `fetch`, `reindex`, `version` (+ hidden `hook-handler`)
 
 ### engram-core structure
 
@@ -65,11 +65,12 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
   - `read.rs` — Reads engram data back from Git objects
 - `src/config/` — `EngramConfig` in `.git/config` under `[engram]`
 - `src/pricing.rs` — Static model pricing table (Anthropic + OpenAI) with `estimate_cost()`. `TokenUsage::effective_cost(model)` returns explicit cost if set, else estimates from pricing.
+- `src/notes.rs` — Git notes formatting: `format_note(data: &EngramData) -> String` for attaching reasoning metadata to commits. Uses `refs/notes/engram` namespace.
 - `src/error.rs` — `CoreError` enum (thiserror), includes `InvalidId` variant
 - `src/hooks/` — Git hook system:
   - `session.rs` — `ActiveSession` (`.git/engram-session`) with `fs2` advisory file locking for concurrent commit safety
   - `installer.rs` — Installs prepare-commit-msg/post-commit hooks, chains with existing hooks, `#[cfg(unix)]` guarded permissions
-  - `handlers.rs` — Hook callbacks: commit trailer injection (`Engram-Id:` and `Engram-Agent:`)
+  - `handlers.rs` — Hook callbacks: commit trailer injection (`Engram-Id:`, `Engram-Agent:`, `Engram-Model:`, `Engram-Tokens:`, `Engram-Cost:`)
   - `claude_code.rs` — Installs/uninstalls Claude Code `SessionEnd` hook in `.claude/settings.json` for auto-capture
 
 ### engram-capture structure
@@ -101,6 +102,7 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 - **File locking**: `fs2` crate for advisory locks on `ActiveSession` (MSRV 1.80 compatible — use `fs2::FileExt::` fully-qualified calls to avoid name collision with Rust 1.89+ std methods)
 - **Import dedup**: SHA-256 `source_hash` on Manifest prevents re-importing the same session file
 - **Cost estimation**: Display-time estimation via `TokenUsage::effective_cost(model)`. Returns explicit `cost_usd` if set, otherwise estimates from a static pricing table in `pricing.rs`. Cache-aware: separate rates for `cache_read_tokens` and `cache_write_tokens`. Standard input = `input_tokens - cache_read - cache_write`.
+- **Git notes**: Rich reasoning metadata attached to commits under `refs/notes/engram`. `engram annotate` retroactively attaches notes; `handle_session_end` auto-annotates after Claude Code sessions. Notes sync via refspecs alongside engram refs. `engram init` installs `git loge` alias for `git log --notes=refs/notes/engram`.
 - **MCP server**: `engram-mcp` crate uses `rmcp` (v0.15) with stdio transport. Server stores `PathBuf` not `GitStorage` because `git2::Repository` is `!Send` and rmcp requires `ServerHandler: Send + Sync + 'static`. Each tool opens the repo fresh per request. Uses `schemars` v1 (matching rmcp's dependency).
 - **Claude Code auto-capture**: `engram init --claude-code` installs a `SessionEnd` hook in `.claude/settings.json`. The hook calls `engram hook-handler session-end` which reads `transcript_path` from stdin JSON and imports via `ClaudeCodeImporter`. Uses `std::env::current_exe()` for the binary path. Idempotent (checks for existing hook marker before adding).
 - **GitHub Action**: Composite action at `action/action.yml` downloads pre-built binaries from GitHub Releases, runs `engram pr-summary`, and posts sticky PR comments via `marocchino/sticky-pull-request-comment@v2`. Release workflow at `.github/workflows/release.yml` cross-compiles for linux-musl (x64/arm64 via `cross`) and macOS (x64/arm64 native).

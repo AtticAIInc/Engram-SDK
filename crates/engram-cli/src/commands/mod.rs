@@ -1,3 +1,4 @@
+pub mod annotate;
 pub mod blame;
 pub mod dead_ends;
 pub mod diff;
@@ -68,6 +69,8 @@ pub enum Commands {
     Reindex,
     /// Explain why a file exists through its reasoning chain
     Why(why::WhyArgs),
+    /// Attach engram reasoning as git notes on commits
+    Annotate(annotate::AnnotateArgs),
     /// Print version information
     Version,
     /// Internal: handle git hook callbacks

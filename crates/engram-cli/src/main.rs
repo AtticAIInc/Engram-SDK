@@ -63,6 +63,7 @@ fn main() -> Result<()> {
         commands::Commands::Blame(args) => commands::blame::run(args, cli.format),
         commands::Commands::Reindex => commands::reindex::run(),
         commands::Commands::Why(args) => commands::why::run(args, cli.format),
+        commands::Commands::Annotate(args) => commands::annotate::run(args),
         commands::Commands::Version => commands::version::run(),
         commands::Commands::HookHandler(args) => commands::hook_handler::run(args),
     }

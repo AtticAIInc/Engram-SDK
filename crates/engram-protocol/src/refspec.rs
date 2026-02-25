@@ -8,6 +8,12 @@ pub const ENGRAM_FETCH_REFSPEC: &str = "+refs/engrams/*:refs/engrams/*";
 /// Refspec for pushing engram refs to remotes.
 pub const ENGRAM_PUSH_REFSPEC: &str = "refs/engrams/*:refs/engrams/*";
 
+/// Refspec for fetching engram notes from remotes.
+pub const NOTES_FETCH_REFSPEC: &str = "+refs/notes/engram:refs/notes/engram";
+
+/// Refspec for pushing engram notes to remotes.
+pub const NOTES_PUSH_REFSPEC: &str = "refs/notes/engram:refs/notes/engram";
+
 /// Ensure the engram refspecs are configured for a remote.
 pub fn ensure_refspecs(repo: &Repository, remote_name: &str) -> Result<bool, ProtocolError> {
     let remote = repo
@@ -16,6 +22,8 @@ pub fn ensure_refspecs(repo: &Repository, remote_name: &str) -> Result<bool, Pro
 
     let mut needs_fetch = true;
     let mut needs_push = true;
+    let mut needs_notes_fetch = true;
+    let mut needs_notes_push = true;
 
     // Check existing fetch refspecs
     if let Ok(refspecs) = remote.fetch_refspecs() {
@@ -23,6 +31,9 @@ pub fn ensure_refspecs(repo: &Repository, remote_name: &str) -> Result<bool, Pro
             if let Some(spec) = refspecs.get(i) {
                 if spec == ENGRAM_FETCH_REFSPEC {
                     needs_fetch = false;
+                }
+                if spec == NOTES_FETCH_REFSPEC {
+                    needs_notes_fetch = false;
                 }
             }
         }
@@ -34,6 +45,9 @@ pub fn ensure_refspecs(repo: &Repository, remote_name: &str) -> Result<bool, Pro
             if let Some(spec) = refspecs.get(i) {
                 if spec == ENGRAM_PUSH_REFSPEC {
                     needs_push = false;
+                }
+                if spec == NOTES_PUSH_REFSPEC {
+                    needs_notes_push = false;
                 }
             }
         }
@@ -47,9 +61,17 @@ pub fn ensure_refspecs(repo: &Repository, remote_name: &str) -> Result<bool, Pro
         repo.remote_add_fetch(remote_name, ENGRAM_FETCH_REFSPEC)?;
         changed = true;
     }
+    if needs_notes_fetch {
+        repo.remote_add_fetch(remote_name, NOTES_FETCH_REFSPEC)?;
+        changed = true;
+    }
 
     if needs_push {
         repo.remote_add_push(remote_name, ENGRAM_PUSH_REFSPEC)?;
+        changed = true;
+    }
+    if needs_notes_push {
+        repo.remote_add_push(remote_name, NOTES_PUSH_REFSPEC)?;
         changed = true;
     }
 

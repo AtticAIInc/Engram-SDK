@@ -38,11 +38,17 @@ pub fn handle_prepare_commit_msg(msg_file: &Path, git_dir: &Path) -> Result<(), 
             .map(|m| format!("/{m}"))
             .unwrap_or_default()
     ));
+    if let Some(model) = &session.agent.model {
+        msg.push_str(&format!("Engram-Model: {model}\n"));
+    }
     msg.push_str(&format!(
         "Engram-Tokens: {}\n",
         session.token_usage.total_tokens
     ));
-    if let Some(cost) = session.token_usage.cost_usd {
+    if let Some(cost) = session
+        .token_usage
+        .effective_cost(session.agent.model.as_deref())
+    {
         msg.push_str(&format!("Engram-Cost: ${cost:.2}\n"));
     }
 
@@ -123,6 +129,7 @@ mod tests {
         let content = fs::read_to_string(&msg_file).unwrap();
         assert!(content.contains("Engram-Id:"));
         assert!(content.contains("Engram-Agent: claude-code/claude-sonnet-4-5"));
+        assert!(content.contains("Engram-Model: claude-sonnet-4-5"));
         assert!(content.contains("Engram-Tokens: 1500"));
         assert!(content.contains("Engram-Cost: $0.02"));
     }

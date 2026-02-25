@@ -124,10 +124,77 @@ fn handle_session_end(storage: &GitStorage) {
                 let _ = engine.index_engram(&data);
             }
             tracing::debug!("session-end: imported engram {}", &id.as_str()[..8]);
+
+            // Best-effort: annotate commits that reference this engram
+            auto_annotate_commits(storage, &data);
         }
         Err(e) => {
             tracing::debug!("session-end: failed to store engram: {e}");
         }
+    }
+}
+
+/// Scan recent commits for Engram-Id trailers matching the given engram,
+/// and attach git notes with rich reasoning metadata.
+fn auto_annotate_commits(storage: &GitStorage, data: &engram_core::model::EngramData) {
+    use engram_core::notes::{format_note, ENGRAM_NOTES_REF};
+
+    let repo = storage.repo();
+    let engram_id_str = data.manifest.id.as_str().to_string();
+
+    // Walk recent commits looking for Engram-Id trailers
+    let head = match repo.head().and_then(|h| h.peel_to_commit()) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let sig = repo
+        .signature()
+        .unwrap_or_else(|_| git2::Signature::now("engram", "engram@localhost").unwrap());
+
+    let mut revwalk = match repo.revwalk() {
+        Ok(r) => r,
+        Err(_) => return,
+    };
+    if revwalk.push(head.id()).is_err() {
+        return;
+    }
+
+    let note = format_note(data);
+    let mut annotated = 0;
+
+    for oid_result in revwalk.take(50) {
+        let oid = match oid_result {
+            Ok(o) => o,
+            Err(_) => break,
+        };
+        let commit = match repo.find_commit(oid) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        if let Some(message) = commit.message() {
+            for line in message.lines() {
+                if let Some(trailer_id) = line.strip_prefix("Engram-Id: ") {
+                    if trailer_id.trim() == engram_id_str {
+                        // Skip if already annotated
+                        if repo.find_note(Some(ENGRAM_NOTES_REF), oid).is_ok() {
+                            continue;
+                        }
+                        if repo
+                            .note(&sig, &sig, Some(ENGRAM_NOTES_REF), oid, &note, false)
+                            .is_ok()
+                        {
+                            annotated += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if annotated > 0 {
+        tracing::debug!("session-end: annotated {annotated} commit(s) with engram notes");
     }
 }
 

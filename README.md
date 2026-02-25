@@ -193,10 +193,52 @@ The action fetches engram refs, runs `engram pr-summary`, and posts a sticky com
 
 When you run `engram init`, git hooks are automatically installed:
 
-- **prepare-commit-msg**: Injects `Engram-Id:` and `Engram-Agent:` trailers into commit messages during active recording sessions
+- **prepare-commit-msg**: Injects `Engram-Id:`, `Engram-Agent:`, `Engram-Model:`, `Engram-Tokens:`, and `Engram-Cost:` trailers into commit messages during active recording sessions
 - **post-commit**: Links new commit SHAs to the active session for automatic commit tracking
 
 Existing hooks are preserved -- engram chains after them via `.pre-engram` backups. Hooks fail silently to never break your git workflow.
+
+## Git Notes: Reasoning on Commits
+
+Engram attaches rich reasoning metadata as [git notes](https://git-scm.com/docs/git-notes) to your commits:
+
+```bash
+# Annotate commits with engram reasoning (retroactive, non-destructive)
+engram annotate                    # All commits linked to engrams
+engram annotate main..HEAD         # Only commits in a range
+engram annotate --dry-run          # Preview what would be annotated
+engram annotate --force            # Overwrite existing notes
+
+# View annotated commits
+git log --notes=engram             # Standard git, shows notes inline
+git loge                           # Alias installed by `engram init`
+```
+
+Notes appear inline in `git log` output:
+```
+commit abc1234
+Author: Developer <dev@example.com>
+
+    Add OAuth2 with PKCE flow
+
+    Engram-Id: a1b2c3d4...
+    Engram-Agent: claude-code
+    Engram-Model: claude-sonnet-4-5
+    Engram-Tokens: 1100000
+    Engram-Cost: $4.50
+
+Notes (engram):
+    [claude-code/claude-sonnet-4-5] $4.50 1100000tok
+    Intent: "Add OAuth2 authentication with PKCE for our SPA"
+    Summary: Implemented OAuth2 with PKCE using custom middleware
+    Dead ends:
+      - passport.js: Middleware conflict with existing stack
+    Decisions:
+      - Custom middleware over Auth0 SDK: Auth0 added 2MB to bundle
+    Files: +auth.rs +oauth.rs ~api.rs
+```
+
+Notes are automatically attached when Claude Code's SessionEnd hook fires. Notes sync alongside engram refs during push/pull via `refs/notes/engram` refspecs.
 
 ## Search and Query
 
@@ -350,7 +392,7 @@ Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Applicat
 
 | Command       | Description |
 |---------------|-------------|
-| `init`        | Initialize engram in a Git repository (`--remote`, `--force`, `--claude-code`) |
+| `init`        | Initialize engram in a Git repository (`--remote`, `--force`, `--claude-code`). Installs `git loge` alias. |
 | `record`      | Record an agent session via PTY wrapper (`--agent`, `--model`) |
 | `import`      | Import sessions from Claude Code or Aider (with dedup) |
 | `log`         | List engrams (most recent first) (`--cost`, `--by-agent`) |
@@ -370,6 +412,7 @@ Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Applicat
 | `push`        | Push engram refs to a remote |
 | `pull`        | Pull engram refs and reindex |
 | `fetch`       | Fetch engram refs from a remote |
+| `annotate`    | Attach engram reasoning as git notes to commits (`--dry-run`, `--force`, range) |
 | `reindex`     | Rebuild the search index |
 | `version`     | Print version information |
 
@@ -409,7 +452,7 @@ git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo build --workspace
 
-# Run tests (143 Rust + 10 Python + 7 TypeScript = 160 total)
+# Run tests (147 Rust + 10 Python + 7 TypeScript = 164 total)
 cargo test --workspace
 cd sdks/python && python3 -m pytest tests/
 cd sdks/typescript && npx vitest run

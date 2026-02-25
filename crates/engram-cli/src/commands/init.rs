@@ -47,6 +47,12 @@ pub fn run(args: &InitArgs) -> Result<()> {
     let git_dir = storage.repo().path().to_path_buf();
     hooks::install_hooks(&git_dir).context("Failed to install git hooks")?;
 
+    // Install git alias for viewing engram notes
+    let _ = storage
+        .repo()
+        .config()
+        .and_then(|mut c| c.set_str("alias.loge", "log --notes=refs/notes/engram"));
+
     if args.claude_code {
         let workdir = storage
             .workdir()
