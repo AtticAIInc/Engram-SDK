@@ -13,7 +13,7 @@ Engram captures AI agent reasoning as first-class, versioned data in Git. Each "
 ```bash
 source "$HOME/.cargo/env"             # Ensure cargo is on PATH
 cargo build --workspace               # Build all crates
-cargo test --workspace                # Run all Rust tests (129 currently)
+cargo test --workspace                # Run all Rust tests (143 currently)
 cargo test -p engram-core             # Test a single crate
 cargo clippy --workspace -- -D warnings  # Lint (zero warnings policy)
 cargo fmt --all -- --check            # Format check
@@ -30,7 +30,7 @@ cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 cd sdks/typescript && npm install && npx vitest run
 ```
 
-**Total test count: 129 Rust + 10 Python + 7 TypeScript = 146 tests.**
+**Total test count: 143 Rust + 10 Python + 7 TypeScript = 160 tests.**
 
 ## Architecture
 
@@ -64,6 +64,7 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
   - `refs.rs` — Manages refs under `refs/engrams/<ab>/<full-id>` with fanout
   - `read.rs` — Reads engram data back from Git objects
 - `src/config/` — `EngramConfig` in `.git/config` under `[engram]`
+- `src/pricing.rs` — Static model pricing table (Anthropic + OpenAI) with `estimate_cost()`. `TokenUsage::effective_cost(model)` returns explicit cost if set, else estimates from pricing.
 - `src/error.rs` — `CoreError` enum (thiserror), includes `InvalidId` variant
 - `src/hooks/` — Git hook system:
   - `session.rs` — `ActiveSession` (`.git/engram-session`) with `fs2` advisory file locking for concurrent commit safety
@@ -99,6 +100,7 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 - **Cross-SDK serialization**: Rust is canonical. Python and TypeScript SDKs must match snake_case enum values.
 - **File locking**: `fs2` crate for advisory locks on `ActiveSession` (MSRV 1.80 compatible — use `fs2::FileExt::` fully-qualified calls to avoid name collision with Rust 1.89+ std methods)
 - **Import dedup**: SHA-256 `source_hash` on Manifest prevents re-importing the same session file
+- **Cost estimation**: Display-time estimation via `TokenUsage::effective_cost(model)`. Returns explicit `cost_usd` if set, otherwise estimates from a static pricing table in `pricing.rs`. Cache-aware: separate rates for `cache_read_tokens` and `cache_write_tokens`. Standard input = `input_tokens - cache_read - cache_write`.
 - **MCP server**: `engram-mcp` crate uses `rmcp` (v0.15) with stdio transport. Server stores `PathBuf` not `GitStorage` because `git2::Repository` is `!Send` and rmcp requires `ServerHandler: Send + Sync + 'static`. Each tool opens the repo fresh per request. Uses `schemars` v1 (matching rmcp's dependency).
 - **Claude Code auto-capture**: `engram init --claude-code` installs a `SessionEnd` hook in `.claude/settings.json`. The hook calls `engram hook-handler session-end` which reads `transcript_path` from stdin JSON and imports via `ClaudeCodeImporter`. Uses `std::env::current_exe()` for the binary path. Idempotent (checks for existing hook marker before adding).
 - **GitHub Action**: Composite action at `action/action.yml` downloads pre-built binaries from GitHub Releases, runs `engram pr-summary`, and posts sticky PR comments via `marocchino/sticky-pull-request-comment@v2`. Release workflow at `.github/workflows/release.yml` cross-compiles for linux-musl (x64/arm64 via `cross`) and macOS (x64/arm64 native).

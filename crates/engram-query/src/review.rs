@@ -96,7 +96,11 @@ pub fn review_branch(
     let total_cost: Option<f64> = {
         let costs: Vec<f64> = engrams
             .iter()
-            .filter_map(|e| e.manifest.token_usage.cost_usd)
+            .filter_map(|e| {
+                e.manifest
+                    .token_usage
+                    .effective_cost(e.manifest.agent.model.as_deref())
+            })
             .collect();
         if costs.is_empty() {
             None

@@ -67,13 +67,17 @@ fn run_aggregate(manifests: &[engram_core::model::Manifest], format: OutputForma
     let latest = manifests.first().map(|m| m.created_at);
 
     for m in manifests {
+        let cost = m
+            .token_usage
+            .effective_cost(m.agent.model.as_deref())
+            .unwrap_or(0.0);
         total_tokens += m.token_usage.total_tokens;
-        total_cost += m.token_usage.cost_usd.unwrap_or(0.0);
+        total_cost += cost;
 
         let entry = by_agent.entry(m.agent.name.clone()).or_default();
         entry.0 += 1;
         entry.1 += m.token_usage.total_tokens;
-        entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+        entry.2 += cost;
 
         *by_mode.entry(format!("{:?}", m.capture_mode)).or_default() += 1;
     }
@@ -141,7 +145,10 @@ fn run_by_file(
     for m in manifests {
         if let Ok(data) = storage.read(m.id.as_str()) {
             let session_tokens = m.token_usage.total_tokens;
-            let session_cost = m.token_usage.cost_usd.unwrap_or(0.0);
+            let session_cost = m
+                .token_usage
+                .effective_cost(m.agent.model.as_deref())
+                .unwrap_or(0.0);
             let file_count = data.operations.file_changes.len();
 
             if file_count == 0 {
@@ -228,10 +235,14 @@ fn run_by_branch(
             "(unknown)".to_string()
         };
 
+        let cost = m
+            .token_usage
+            .effective_cost(m.agent.model.as_deref())
+            .unwrap_or(0.0);
         let entry = by_branch.entry(branch).or_default();
         entry.0 += 1;
         entry.1 += m.token_usage.total_tokens;
-        entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+        entry.2 += cost;
     }
 
     // Sort by cost descending
@@ -296,11 +307,15 @@ fn run_trend(manifests: &[engram_core::model::Manifest], format: OutputFormat) -
         if m.created_at < cutoff {
             continue;
         }
+        let cost = m
+            .token_usage
+            .effective_cost(m.agent.model.as_deref())
+            .unwrap_or(0.0);
         let date = m.created_at.date_naive();
         let entry = by_date.entry(date).or_default();
         entry.0 += 1;
         entry.1 += m.token_usage.total_tokens;
-        entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+        entry.2 += cost;
     }
 
     match format {

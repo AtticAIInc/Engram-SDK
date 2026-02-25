@@ -240,6 +240,8 @@ engram stats --by-branch        # Cost per feature branch
 engram stats --trend            # Daily cost over last 30 days
 ```
 
+**Automatic cost estimation**: Even when your agent doesn't report costs directly (e.g. Claude Code imports), engram estimates costs from the model name and token counts using built-in API pricing tables. Supports Claude (Opus, Sonnet, Haiku across 3.x/3.5/4.x), GPT-4o/4-turbo/4/3.5, and o1/o3 models with full cache-aware pricing (separate rates for cache reads and writes). If explicit cost data is available, that takes priority.
+
 ## Recurring Dead-End Detection
 
 Find approaches that keep getting tried and rejected across sessions — Engram's unique moat:
@@ -407,7 +409,7 @@ git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo build --workspace
 
-# Run tests (129 Rust + 10 Python + 7 TypeScript = 146 total)
+# Run tests (143 Rust + 10 Python + 7 TypeScript = 160 total)
 cargo test --workspace
 cd sdks/python && python3 -m pytest tests/
 cd sdks/typescript && npx vitest run

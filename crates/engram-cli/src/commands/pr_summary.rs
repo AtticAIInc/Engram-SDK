@@ -46,7 +46,7 @@ pub fn run(args: &PrSummaryArgs, format: OutputFormat) -> Result<()> {
                         "summary": e.manifest.summary,
                         "commit": e.commit_sha,
                         "tokens": e.manifest.token_usage.total_tokens,
-                        "cost": e.manifest.token_usage.cost_usd,
+                        "cost": e.manifest.token_usage.effective_cost(e.manifest.agent.model.as_deref()),
                     })
                 }).collect::<Vec<_>>(),
                 "files_changed": review.files_changed,

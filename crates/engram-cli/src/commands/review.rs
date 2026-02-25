@@ -35,7 +35,7 @@ pub fn run(args: &ReviewArgs, format: OutputFormat) -> Result<()> {
                         "summary": e.manifest.summary,
                         "agent": e.manifest.agent.name,
                         "tokens": e.manifest.token_usage.total_tokens,
-                        "cost": e.manifest.token_usage.cost_usd,
+                        "cost": e.manifest.token_usage.effective_cost(e.manifest.agent.model.as_deref()),
                         "commit": e.commit_sha,
                     })
                 }).collect::<Vec<_>>(),

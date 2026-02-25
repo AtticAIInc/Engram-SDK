@@ -28,7 +28,7 @@ fn format_manifest_list_text(manifests: &[Manifest], show_cost: bool) -> String 
             let tokens = m.token_usage.total_tokens;
             let cost = m
                 .token_usage
-                .cost_usd
+                .effective_cost(m.agent.model.as_deref())
                 .map(|c| format!("${c:.2}"))
                 .unwrap_or_else(|| "-".to_string());
             out.push_str(&format!(
@@ -79,7 +79,7 @@ fn format_engram_full_text(data: &EngramData) -> String {
             "Tokens: {} total ({} in, {} out)",
             tu.total_tokens, tu.input_tokens, tu.output_tokens
         ));
-        if let Some(cost) = tu.cost_usd {
+        if let Some(cost) = tu.effective_cost(m.agent.model.as_deref()) {
             out.push_str(&format!("  Cost: ${cost:.4}"));
         }
         out.push('\n');

@@ -13,6 +13,14 @@ pub struct TokenUsage {
     pub cost_usd: Option<f64>,
 }
 
+impl TokenUsage {
+    /// Returns `cost_usd` if already set, otherwise estimates from model pricing.
+    pub fn effective_cost(&self, model: Option<&str>) -> Option<f64> {
+        self.cost_usd
+            .or_else(|| crate::pricing::estimate_cost(model, self))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -45,5 +53,45 @@ mod tests {
         let usage = TokenUsage::default();
         let json = serde_json::to_string(&usage).unwrap();
         assert!(!json.contains("cost_usd"));
+    }
+
+    #[test]
+    fn test_effective_cost_uses_explicit_when_set() {
+        let usage = TokenUsage {
+            input_tokens: 1000,
+            output_tokens: 500,
+            total_tokens: 1500,
+            cost_usd: Some(0.42),
+            ..Default::default()
+        };
+        // Should use the explicit cost, not estimate
+        let cost = usage.effective_cost(Some("claude-sonnet-4-5")).unwrap();
+        assert!((cost - 0.42).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_effective_cost_estimates_when_none() {
+        let usage = TokenUsage {
+            input_tokens: 1_000_000,
+            output_tokens: 100_000,
+            total_tokens: 1_100_000,
+            cost_usd: None,
+            ..Default::default()
+        };
+        let cost = usage.effective_cost(Some("claude-sonnet-4-5")).unwrap();
+        // 1M * $3/M + 100K * $15/M = $3 + $1.5 = $4.5
+        assert!((cost - 4.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_effective_cost_none_for_unknown_model() {
+        let usage = TokenUsage {
+            input_tokens: 1000,
+            output_tokens: 500,
+            total_tokens: 1500,
+            cost_usd: None,
+            ..Default::default()
+        };
+        assert!(usage.effective_cost(Some("llama-70b")).is_none());
     }
 }

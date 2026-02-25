@@ -61,7 +61,10 @@ fn print_narrative(file: &str, entries: &[engram_core::model::EngramData]) {
     for (i, data) in entries.iter().enumerate() {
         let m = &data.manifest;
         total_tokens += m.token_usage.total_tokens;
-        total_cost += m.token_usage.cost_usd.unwrap_or(0.0);
+        total_cost += m
+            .token_usage
+            .effective_cost(m.agent.model.as_deref())
+            .unwrap_or(0.0);
 
         let date = m.created_at.format("%Y-%m-%d %H:%M");
         let agent = &m.agent.name;
@@ -181,7 +184,7 @@ fn print_json(file: &str, entries: &[engram_core::model::EngramData]) {
                     "rationale": d.rationale,
                 })).collect::<Vec<_>>(),
                 "tokens": m.token_usage.total_tokens,
-                "cost_usd": m.token_usage.cost_usd,
+                "cost_usd": m.token_usage.effective_cost(m.agent.model.as_deref()),
             })
         })
         .collect();

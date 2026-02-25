@@ -186,7 +186,7 @@ impl EngramMcpServer {
                 "Tokens: {} total ({} in, {} out)",
                 tu.total_tokens, tu.input_tokens, tu.output_tokens
             ));
-            if let Some(cost) = tu.cost_usd {
+            if let Some(cost) = tu.effective_cost(m.agent.model.as_deref()) {
                 out.push_str(&format!("  Cost: ${cost:.4}"));
             }
             out.push('\n');
@@ -276,7 +276,7 @@ impl EngramMcpServer {
             let tokens = m.token_usage.total_tokens;
             let cost = m
                 .token_usage
-                .cost_usd
+                .effective_cost(m.agent.model.as_deref())
                 .map(|c| format!(" ${c:.2}"))
                 .unwrap_or_default();
             out.push_str(&format!(
@@ -569,7 +569,10 @@ impl EngramMcpServer {
         for (i, data) in entries.iter().enumerate() {
             let m = &data.manifest;
             total_tokens += m.token_usage.total_tokens;
-            total_cost += m.token_usage.cost_usd.unwrap_or(0.0);
+            total_cost += m
+                .token_usage
+                .effective_cost(m.agent.model.as_deref())
+                .unwrap_or(0.0);
 
             let date = m.created_at.format("%Y-%m-%d %H:%M");
             let agent = &m.agent.name;
@@ -660,7 +663,11 @@ impl EngramMcpServer {
                         continue;
                     }
                     let per_file_tokens = m.token_usage.total_tokens / fc_count as u64;
-                    let per_file_cost = m.token_usage.cost_usd.unwrap_or(0.0) / fc_count as f64;
+                    let per_file_cost = m
+                        .token_usage
+                        .effective_cost(m.agent.model.as_deref())
+                        .unwrap_or(0.0)
+                        / fc_count as f64;
                     for fc in &data.operations.file_changes {
                         let entry = by_file.entry(fc.path.clone()).or_default();
                         entry.0 += 1;
@@ -697,10 +704,14 @@ impl EngramMcpServer {
                 } else {
                     "(unknown)".to_string()
                 };
+                let cost = m
+                    .token_usage
+                    .effective_cost(m.agent.model.as_deref())
+                    .unwrap_or(0.0);
                 let entry = by_branch.entry(branch).or_default();
                 entry.0 += 1;
                 entry.1 += m.token_usage.total_tokens;
-                entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+                entry.2 += cost;
             }
             let mut sorted: Vec<_> = by_branch.into_iter().collect();
             sorted.sort_by(|a, b| {
@@ -727,11 +738,15 @@ impl EngramMcpServer {
                 if m.created_at < cutoff {
                     continue;
                 }
+                let cost = m
+                    .token_usage
+                    .effective_cost(m.agent.model.as_deref())
+                    .unwrap_or(0.0);
                 let date = m.created_at.date_naive();
                 let entry = by_date.entry(date).or_default();
                 entry.0 += 1;
                 entry.1 += m.token_usage.total_tokens;
-                entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+                entry.2 += cost;
             }
 
             let mut out = String::from("Cost Trend (last 30 days):\n\n");
@@ -756,12 +771,16 @@ impl EngramMcpServer {
             std::collections::BTreeMap::new();
 
         for m in &manifests {
+            let cost = m
+                .token_usage
+                .effective_cost(m.agent.model.as_deref())
+                .unwrap_or(0.0);
             total_tokens += m.token_usage.total_tokens;
-            total_cost += m.token_usage.cost_usd.unwrap_or(0.0);
+            total_cost += cost;
             let entry = by_agent.entry(m.agent.name.clone()).or_default();
             entry.0 += 1;
             entry.1 += m.token_usage.total_tokens;
-            entry.2 += m.token_usage.cost_usd.unwrap_or(0.0);
+            entry.2 += cost;
         }
 
         let mut out = format!(
