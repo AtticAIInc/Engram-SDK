@@ -13,7 +13,7 @@ Engram captures AI agent reasoning as first-class, versioned data in Git. Each "
 ```bash
 source "$HOME/.cargo/env"             # Ensure cargo is on PATH
 cargo build --workspace               # Build all crates
-cargo test --workspace                # Run all Rust tests (54 currently)
+cargo test --workspace                # Run all Rust tests (124 currently)
 cargo test -p engram-core             # Test a single crate
 cargo clippy --workspace -- -D warnings  # Lint (zero warnings policy)
 cargo fmt --all -- --check            # Format check
@@ -30,7 +30,7 @@ cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 cd sdks/typescript && npm install && npx vitest run
 ```
 
-**Total test count: 118 Rust + 10 Python + 7 TypeScript = 135 tests.**
+**Total test count: 124 Rust + 10 Python + 7 TypeScript = 141 tests.**
 
 ## Architecture
 
@@ -69,6 +69,7 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
   - `session.rs` — `ActiveSession` (`.git/engram-session`) with `fs2` advisory file locking for concurrent commit safety
   - `installer.rs` — Installs prepare-commit-msg/post-commit hooks, chains with existing hooks, `#[cfg(unix)]` guarded permissions
   - `handlers.rs` — Hook callbacks: commit trailer injection (`Engram-Id:` and `Engram-Agent:`)
+  - `claude_code.rs` — Installs/uninstalls Claude Code `SessionEnd` hook in `.claude/settings.json` for auto-capture
 
 ### engram-capture structure
 
@@ -99,6 +100,8 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 - **File locking**: `fs2` crate for advisory locks on `ActiveSession` (MSRV 1.80 compatible — use `fs2::FileExt::` fully-qualified calls to avoid name collision with Rust 1.89+ std methods)
 - **Import dedup**: SHA-256 `source_hash` on Manifest prevents re-importing the same session file
 - **MCP server**: `engram-mcp` crate uses `rmcp` (v0.15) with stdio transport. Server stores `PathBuf` not `GitStorage` because `git2::Repository` is `!Send` and rmcp requires `ServerHandler: Send + Sync + 'static`. Each tool opens the repo fresh per request. Uses `schemars` v1 (matching rmcp's dependency).
+- **Claude Code auto-capture**: `engram init --claude-code` installs a `SessionEnd` hook in `.claude/settings.json`. The hook calls `engram hook-handler session-end` which reads `transcript_path` from stdin JSON and imports via `ClaudeCodeImporter`. Uses `std::env::current_exe()` for the binary path. Idempotent (checks for existing hook marker before adding).
+- **GitHub Action**: Composite action at `action/action.yml` downloads pre-built binaries from GitHub Releases, runs `engram pr-summary`, and posts sticky PR comments via `marocchino/sticky-pull-request-comment@v2`. Release workflow at `.github/workflows/release.yml` cross-compiles for linux-musl (x64/arm64 via `cross`) and macOS (x64/arm64 native).
 
 ### engram-mcp structure
 
