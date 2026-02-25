@@ -93,6 +93,13 @@ interface TokenUsage {
   cost_usd?: number;
 }
 
+// Transcript content types (tagged union on "type" field)
+interface TextContent { type: "text"; text: string; }
+interface ToolUseContent { type: "tool_use"; tool_name: string; tool_id: string; input: unknown; }
+interface ToolResultContent { type: "tool_result"; tool_id: string; output: string; is_error: boolean; }
+interface ThinkingContent { type: "thinking"; text: string; }
+type TranscriptContent = TextContent | ToolUseContent | ToolResultContent | ThinkingContent;
+
 interface Manifest {
   id: string;
   version: number;
@@ -104,6 +111,7 @@ interface Manifest {
   summary?: string;
   tags: string[];
   capture_mode: CaptureMode;
+  source_hash?: string;
 }
 
 interface EngramData {

@@ -51,10 +51,40 @@ export interface Intent {
   decisions: Decision[];
 }
 
+export interface TextContent {
+  type: "text";
+  text: string;
+}
+
+export interface ToolUseContent {
+  type: "tool_use";
+  tool_name: string;
+  tool_id: string;
+  input: unknown;
+}
+
+export interface ToolResultContent {
+  type: "tool_result";
+  tool_id: string;
+  output: string;
+  is_error: boolean;
+}
+
+export interface ThinkingContent {
+  type: "thinking";
+  text: string;
+}
+
+export type TranscriptContent =
+  | TextContent
+  | ToolUseContent
+  | ToolResultContent
+  | ThinkingContent;
+
 export interface TranscriptEntry {
   timestamp: string;
   role: string;
-  content: Record<string, unknown>;
+  content: TranscriptContent | Record<string, unknown>;
   token_count?: number;
 }
 
@@ -110,6 +140,7 @@ export interface Manifest {
   summary?: string;
   tags: string[];
   capture_mode: CaptureMode;
+  source_hash?: string;
 }
 
 export interface EngramData {

@@ -10,9 +10,14 @@ from engram.model import (
     Decision,
     Intent,
     Manifest,
+    TextContent,
+    ThinkingContent,
     TokenUsage,
+    ToolResultContent,
+    ToolUseContent,
     Transcript,
     TranscriptEntry,
+    parse_transcript_content,
 )
 
 
@@ -70,6 +75,39 @@ def test_manifest_roundtrip():
     assert restored.summary == "Test engram"
 
 
+def test_manifest_source_hash():
+    now = datetime.now(timezone.utc)
+    manifest = Manifest(
+        id="abcdef1234567890abcdef1234567890",
+        version=1,
+        created_at=now,
+        agent=AgentInfo(name="test-agent"),
+        token_usage=TokenUsage(),
+        capture_mode=CaptureMode.IMPORT,
+        source_hash="abc123def456",
+    )
+    d = manifest.to_dict()
+    assert d["source_hash"] == "abc123def456"
+    restored = Manifest.from_dict(d)
+    assert restored.source_hash == "abc123def456"
+
+
+def test_manifest_no_source_hash():
+    now = datetime.now(timezone.utc)
+    manifest = Manifest(
+        id="abcdef1234567890abcdef1234567890",
+        version=1,
+        created_at=now,
+        agent=AgentInfo(name="test-agent"),
+        token_usage=TokenUsage(),
+        capture_mode=CaptureMode.SDK,
+    )
+    d = manifest.to_dict()
+    assert "source_hash" not in d
+    restored = Manifest.from_dict(d)
+    assert restored.source_hash is None
+
+
 def test_intent_to_markdown():
     intent = Intent(
         original_request="Add authentication",
@@ -84,12 +122,48 @@ def test_intent_to_markdown():
     assert "Use JWT" in md
 
 
+def test_transcript_content_types():
+    text = TextContent(text="Hello")
+    assert text.to_dict() == {"type": "text", "text": "Hello"}
+    assert TextContent.from_dict({"text": "Hello"}).text == "Hello"
+
+    tool_use = ToolUseContent(tool_name="Bash", tool_id="id1", input={"command": "ls"})
+    d = tool_use.to_dict()
+    assert d["type"] == "tool_use"
+    assert d["tool_name"] == "Bash"
+    restored = ToolUseContent.from_dict(d)
+    assert restored.tool_id == "id1"
+
+    tool_result = ToolResultContent(tool_id="id1", output="done", is_error=False)
+    d = tool_result.to_dict()
+    assert d["type"] == "tool_result"
+    assert not d["is_error"]
+
+    thinking = ThinkingContent(text="Let me think...")
+    d = thinking.to_dict()
+    assert d["type"] == "thinking"
+    assert ThinkingContent.from_dict(d).text == "Let me think..."
+
+
+def test_parse_transcript_content():
+    parsed = parse_transcript_content({"type": "text", "text": "hi"})
+    assert isinstance(parsed, TextContent)
+    assert parsed.text == "hi"
+
+    parsed = parse_transcript_content({"type": "tool_use", "tool_name": "X", "tool_id": "1", "input": {}})
+    assert isinstance(parsed, ToolUseContent)
+
+    # Unknown types return raw dict
+    parsed = parse_transcript_content({"type": "unknown", "data": 42})
+    assert isinstance(parsed, dict)
+
+
 def test_transcript_jsonl_roundtrip():
     now = datetime.now(timezone.utc)
     entries = [
-        TranscriptEntry(timestamp=now, role="user", content={"type": "text", "text": "Hello"}),
+        TranscriptEntry(timestamp=now, role="user", content=TextContent(text="Hello")),
         TranscriptEntry(
-            timestamp=now, role="assistant", content={"type": "text", "text": "Hi there"}
+            timestamp=now, role="assistant", content=TextContent(text="Hi there")
         ),
     ]
     transcript = Transcript(entries=entries)
@@ -97,4 +171,5 @@ def test_transcript_jsonl_roundtrip():
     restored = Transcript.from_jsonl(jsonl)
     assert len(restored.entries) == 2
     assert restored.entries[0].role == "user"
-    assert restored.entries[1].content["text"] == "Hi there"
+    assert isinstance(restored.entries[1].content, TextContent)
+    assert restored.entries[1].content.text == "Hi there"

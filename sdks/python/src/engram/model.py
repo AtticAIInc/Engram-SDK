@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 
 
 def _new_engram_id() -> str:
@@ -218,17 +218,110 @@ class Intent:
 
 
 @dataclass
+class TextContent:
+    """Text message content (type: "text")."""
+
+    text: str
+
+    def to_dict(self) -> dict:
+        return {"type": "text", "text": self.text}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> TextContent:
+        return cls(text=d["text"])
+
+
+@dataclass
+class ToolUseContent:
+    """Tool invocation content (type: "tool_use")."""
+
+    tool_name: str
+    tool_id: str
+    input: Any
+
+    def to_dict(self) -> dict:
+        return {
+            "type": "tool_use",
+            "tool_name": self.tool_name,
+            "tool_id": self.tool_id,
+            "input": self.input,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ToolUseContent:
+        return cls(tool_name=d["tool_name"], tool_id=d["tool_id"], input=d["input"])
+
+
+@dataclass
+class ToolResultContent:
+    """Tool result content (type: "tool_result")."""
+
+    tool_id: str
+    output: str
+    is_error: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "type": "tool_result",
+            "tool_id": self.tool_id,
+            "output": self.output,
+            "is_error": self.is_error,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ToolResultContent:
+        return cls(tool_id=d["tool_id"], output=d["output"], is_error=d.get("is_error", False))
+
+
+@dataclass
+class ThinkingContent:
+    """Agent thinking/reasoning content (type: "thinking")."""
+
+    text: str
+
+    def to_dict(self) -> dict:
+        return {"type": "thinking", "text": self.text}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ThinkingContent:
+        return cls(text=d["text"])
+
+
+# Union type for transcript content
+TranscriptContent = Union[TextContent, ToolUseContent, ToolResultContent, ThinkingContent]
+
+_CONTENT_TYPE_MAP: dict[str, type] = {
+    "text": TextContent,
+    "tool_use": ToolUseContent,
+    "tool_result": ToolResultContent,
+    "thinking": ThinkingContent,
+}
+
+
+def parse_transcript_content(d: dict) -> TranscriptContent | dict:
+    """Parse a transcript content dict into a typed dataclass.
+
+    Returns the raw dict if the type is unrecognized (forward compatibility).
+    """
+    content_type = d.get("type")
+    cls = _CONTENT_TYPE_MAP.get(content_type) if content_type else None
+    if cls is not None:
+        return cls.from_dict(d)
+    return d
+
+
+@dataclass
 class TranscriptEntry:
     timestamp: datetime
     role: str  # "user", "assistant", "system", "tool"
-    content: dict  # {"type": "text", "text": "..."} or {"type": "tool_use", ...}
+    content: TranscriptContent | dict  # Typed content or raw dict for unknown types
     token_count: int | None = None
 
     def to_dict(self) -> dict:
         d: dict[str, Any] = {
             "timestamp": self.timestamp.isoformat(),
             "role": self.role,
-            "content": self.content,
+            "content": self.content.to_dict() if hasattr(self.content, "to_dict") else self.content,
         }
         if self.token_count is not None:
             d["token_count"] = self.token_count
@@ -239,7 +332,7 @@ class TranscriptEntry:
         return cls(
             timestamp=datetime.fromisoformat(d["timestamp"]),
             role=d["role"],
-            content=d["content"],
+            content=parse_transcript_content(d["content"]),
             token_count=d.get("token_count"),
         )
 
@@ -413,6 +506,7 @@ class Manifest:
     git_commits: list[str] = field(default_factory=list)
     summary: str | None = None
     tags: list[str] = field(default_factory=list)
+    source_hash: str | None = None
 
     def to_dict(self) -> dict:
         d: dict[str, Any] = {
@@ -429,6 +523,8 @@ class Manifest:
             d["finished_at"] = self.finished_at.isoformat()
         if self.summary is not None:
             d["summary"] = self.summary
+        if self.source_hash is not None:
+            d["source_hash"] = self.source_hash
         return d
 
     @classmethod
@@ -444,6 +540,7 @@ class Manifest:
             git_commits=d.get("git_commits", []),
             summary=d.get("summary"),
             tags=d.get("tags", []),
+            source_hash=d.get("source_hash"),
         )
 
 

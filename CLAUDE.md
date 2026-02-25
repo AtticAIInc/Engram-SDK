@@ -30,7 +30,7 @@ cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 cd sdks/typescript && npm install && npx vitest run
 ```
 
-**Total test count: 161 Rust + 10 Python + 7 TypeScript = 178 tests.**
+**Total test count: 161 Rust + 14 Python + 9 TypeScript = 184 tests.**
 
 ## Architecture
 

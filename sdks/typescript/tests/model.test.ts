@@ -5,7 +5,15 @@ import {
   newEngramId,
   transcriptToJsonl,
 } from "../src/model.js";
-import type { Intent, Transcript, TokenUsage } from "../src/model.js";
+import type {
+  Intent,
+  Manifest,
+  TextContent,
+  ToolUseContent,
+  Transcript,
+  TranscriptContent,
+  TokenUsage,
+} from "../src/model.js";
 
 describe("model", () => {
   it("generates unique engram IDs", () => {
@@ -47,12 +55,12 @@ describe("model", () => {
         {
           timestamp: "2024-01-01T00:00:00Z",
           role: "user",
-          content: { type: "text", text: "Hello" },
+          content: { type: "text", text: "Hello" } as TextContent,
         },
         {
           timestamp: "2024-01-01T00:00:01Z",
           role: "assistant",
-          content: { type: "text", text: "Hi there" },
+          content: { type: "text", text: "Hi there" } as TextContent,
         },
       ],
     };
@@ -64,5 +72,59 @@ describe("model", () => {
     const first = JSON.parse(lines[0]);
     expect(first.role).toBe("user");
     expect(first.content.text).toBe("Hello");
+  });
+
+  it("supports typed transcript content variants", () => {
+    const text: TranscriptContent = { type: "text", text: "hello" };
+    expect(text.type).toBe("text");
+
+    const toolUse: TranscriptContent = {
+      type: "tool_use",
+      tool_name: "Bash",
+      tool_id: "id1",
+      input: { command: "ls" },
+    };
+    expect(toolUse.type).toBe("tool_use");
+    if (toolUse.type === "tool_use") {
+      expect(toolUse.tool_name).toBe("Bash");
+    }
+
+    const toolResult: TranscriptContent = {
+      type: "tool_result",
+      tool_id: "id1",
+      output: "done",
+      is_error: false,
+    };
+    expect(toolResult.type).toBe("tool_result");
+
+    const thinking: TranscriptContent = { type: "thinking", text: "hmm..." };
+    expect(thinking.type).toBe("thinking");
+  });
+
+  it("manifest supports source_hash", () => {
+    const manifest: Manifest = {
+      id: "abcdef1234567890abcdef1234567890",
+      version: 1,
+      created_at: "2024-01-01T00:00:00Z",
+      agent: { name: "test" },
+      git_commits: [],
+      token_usage: defaultTokenUsage(),
+      tags: [],
+      capture_mode: "import",
+      source_hash: "abc123def456",
+    };
+    expect(manifest.source_hash).toBe("abc123def456");
+
+    const noHash: Manifest = {
+      id: "abcdef1234567890abcdef1234567890",
+      version: 1,
+      created_at: "2024-01-01T00:00:00Z",
+      agent: { name: "test" },
+      git_commits: [],
+      token_usage: defaultTokenUsage(),
+      tags: [],
+      capture_mode: "sdk",
+    };
+    expect(noHash.source_hash).toBeUndefined();
   });
 });

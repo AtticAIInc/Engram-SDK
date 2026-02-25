@@ -107,10 +107,14 @@ All types are Python dataclasses in `engram.model`:
 | `DeadEnd` | `approach: str`, `reason: str` |
 | `Decision` | `description: str`, `rationale: str` |
 | `Intent` | `original_request: str`, `dead_ends: list[DeadEnd]`, `decisions: list[Decision]` |
-| `TranscriptEntry` | `timestamp: datetime`, `role: str`, `content: dict` |
+| `TextContent` | `text: str` |
+| `ToolUseContent` | `tool_name: str`, `tool_id: str`, `input: Any` |
+| `ToolResultContent` | `tool_id: str`, `output: str`, `is_error: bool` |
+| `ThinkingContent` | `text: str` |
+| `TranscriptEntry` | `timestamp: datetime`, `role: str`, `content: TranscriptContent \| dict` |
 | `FileChange` | `path: str`, `change_type: str`, `lines_added: int \| None` |
 | `ToolCall` | `tool_name: str`, `input: Any`, `output_summary: str \| None` |
-| `Manifest` | `id: str`, `agent: AgentInfo`, `token_usage: TokenUsage`, `summary: str \| None` |
+| `Manifest` | `id: str`, `agent: AgentInfo`, `token_usage: TokenUsage`, `summary: str \| None`, `source_hash: str \| None` |
 | `EngramData` | `manifest`, `intent`, `transcript`, `operations`, `lineage` |
 
 ### Enums
