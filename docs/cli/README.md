@@ -1,6 +1,6 @@
 # CLI Overview
 
-The `engram` CLI provides 24 commands for capturing, querying, and syncing agent reasoning.
+The `engram` CLI provides 28 commands for capturing, querying, and syncing agent reasoning.
 
 ## Installation
 
@@ -33,9 +33,9 @@ These flags are available on all commands:
 |---------|-------------|
 | [log](log.md) | List engrams (most recent first) |
 | [show](show.md) | Show details of a specific engram |
-| [search](search.md) | Full-text search across engrams |
+| [search](search.md) | Full-text search across engrams (supports cross-repo) |
 | [trace](trace.md) | Show reasoning history for a file |
-| [why](why.md) | Explain why a file exists through its reasoning chain |
+| [why](why.md) | Explain why a file or line exists through its reasoning chain |
 | [diff](diff.md) | Compare two engrams |
 | [graph](graph.md) | Show the context graph |
 | [blame](blame.md) | Show reasoning blame for a file |
@@ -54,6 +54,7 @@ These flags are available on all commands:
 |---------|-------------|
 | [review](review.md) | Review intent chain for a branch range |
 | [pr-summary](pr-summary.md) | Generate a PR description from engram chain |
+| [audit](audit.md) | Generate compliance reports mapping commits to reasoning |
 
 ### Sync
 
@@ -69,6 +70,13 @@ These flags are available on all commands:
 |---------|-------------|
 | [gc](gc.md) | Garbage collect old engrams |
 | [reindex](reindex.md) | Rebuild the search index |
+
+### Interactive
+
+| Command | Description |
+|---------|-------------|
+| [browse](browse.md) | Interactive terminal UI for browsing engrams |
+| [dashboard](dashboard.md) | Web-based dashboard with cost breakdowns and trends |
 
 ### Integration
 

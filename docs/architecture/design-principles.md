@@ -66,6 +66,18 @@ The manifest includes a `version` field (currently `1`). Enum serialization uses
 
 **Why:** The data model will evolve. Versioning and consistent serialization make migrations possible.
 
+## 12. Cross-Repository Awareness
+
+A global config at `~/.config/engram/repos.toml` tracks all initialized repositories. `engram search --global` searches across all of them, merging results by relevance.
+
+**Why:** Teams and individuals work across multiple repositories. Reasoning should be searchable across project boundaries.
+
+## 13. Embedded UIs
+
+The dashboard (`engram dashboard`) embeds its HTML/JS SPA via `include_str!()`. The TUI (`engram browse`) uses ratatui for a zero-dependency terminal interface. Neither requires external files, build steps, or npm.
+
+**Why:** A single binary should provide the full experience. External asset files create deployment complexity.
+
 ## Trade-offs
 
 | Decision | Trade-off |
@@ -75,3 +87,6 @@ The manifest includes a `version` field (currently `1`). Enum serialization uses
 | Tantivy for search | Adds binary size, but provides fast full-text search |
 | Vendored libgit2 | Slower builds, but zero system dependencies |
 | 5-blob tree structure | More objects per engram, but enables reading individual components |
+| Embedded SPA (include_str) | Binary is larger, but zero deployment files |
+| axum for dashboard | Adds async runtime dep, but mature HTTP framework |
+| ratatui for TUI | Adds terminal UI dep, but rich interactive experience |

@@ -32,6 +32,9 @@
 * [fetch](cli/fetch.md)
 * [reindex](cli/reindex.md)
 * [version](cli/version.md)
+* [audit](cli/audit.md)
+* [browse](cli/browse.md)
+* [dashboard](cli/dashboard.md)
 * [mcp](cli/mcp.md)
 
 ## SDK Guides

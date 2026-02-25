@@ -4,10 +4,10 @@
 
 | Suite | Count | Command |
 |-------|-------|---------|
-| Rust | 147 | `cargo test --workspace` |
+| Rust | 150 | `cargo test --workspace` |
 | Python | 10 | `cd sdks/python && python3 -m pytest tests/ -v` |
 | TypeScript | 7 | `cd sdks/typescript && npx vitest run` |
-| **Total** | **164** | |
+| **Total** | **167** | |
 
 ## Running Tests
 
@@ -26,6 +26,8 @@ cargo test -p engram-query
 cargo test -p engram-protocol
 cargo test -p engram-sdk
 cargo test -p engram-mcp
+cargo test -p engram-dashboard
+cargo test -p engram-tui
 ```
 
 ### Python SDK
