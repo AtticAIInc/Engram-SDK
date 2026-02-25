@@ -165,6 +165,20 @@ impl GitStorage {
         None
     }
 
+    /// Find the engram that produced a given git commit SHA.
+    /// Searches `manifest.git_commits` across all engrams.
+    pub fn find_by_commit_sha(&self, sha: &str) -> Option<EngramId> {
+        let all_refs = refs::list_engram_refs(&self.repo).ok()?;
+        for (_id, oid) in &all_refs {
+            if let Ok(manifest) = read::read_manifest(&self.repo, *oid) {
+                if manifest.git_commits.iter().any(|c| c == sha) {
+                    return Some(manifest.id);
+                }
+            }
+        }
+        None
+    }
+
     /// Delete an engram by removing its ref.
     pub fn delete(&self, id_or_prefix: &str) -> Result<(), CoreError> {
         let (id, _oid) = refs::resolve_engram_ref(&self.repo, id_or_prefix)?;

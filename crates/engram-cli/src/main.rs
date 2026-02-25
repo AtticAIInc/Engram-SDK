@@ -64,6 +64,9 @@ fn main() -> Result<()> {
         commands::Commands::Reindex => commands::reindex::run(),
         commands::Commands::Why(args) => commands::why::run(args, cli.format),
         commands::Commands::Annotate(args) => commands::annotate::run(args),
+        commands::Commands::Audit(args) => commands::audit::run(args, cli.format),
+        commands::Commands::Browse(args) => commands::browse::run(args),
+        commands::Commands::Dashboard(args) => commands::dashboard::run(args),
         commands::Commands::Version => commands::version::run(),
         commands::Commands::HookHandler(args) => commands::hook_handler::run(args),
     }

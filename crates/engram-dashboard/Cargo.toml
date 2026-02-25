@@ -1,0 +1,21 @@
+[package]
+name = "engram-dashboard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Web dashboard for Engram reasoning data"
+
+[dependencies]
+engram-core = { workspace = true }
+engram-query = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+
+[lints]
+workspace = true

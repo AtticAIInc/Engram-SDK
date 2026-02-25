@@ -1,5 +1,8 @@
 pub mod annotate;
+pub mod audit;
 pub mod blame;
+pub mod browse;
+pub mod dashboard;
 pub mod dead_ends;
 pub mod diff;
 pub mod fetch;
@@ -71,6 +74,12 @@ pub enum Commands {
     Why(why::WhyArgs),
     /// Attach engram reasoning as git notes on commits
     Annotate(annotate::AnnotateArgs),
+    /// Generate audit trail report for compliance
+    Audit(audit::AuditArgs),
+    /// Interactive terminal UI for browsing engrams
+    Browse(browse::BrowseArgs),
+    /// Start the web dashboard for visualizing engram data
+    Dashboard(dashboard::DashboardArgs),
     /// Print version information
     Version,
     /// Internal: handle git hook callbacks

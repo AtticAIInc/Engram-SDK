@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use clap::Args;
-use engram_core::config::EngramConfig;
+use engram_core::config::{EngramConfig, GlobalConfig};
 use engram_core::hooks;
 use engram_core::notes::{format_note, ENGRAM_NOTES_REF};
 use engram_core::storage::{GitStorage, ListOptions};
@@ -58,8 +58,13 @@ pub fn run(args: &InitArgs) -> Result<()> {
         push_on_push: !args.no_auto_push,
         ..EngramConfig::default_init()
     };
-    let mut git_config = storage.repo().config().context("Failed to open git config")?;
-    config.save(&mut git_config).context("Failed to save config")?;
+    let mut git_config = storage
+        .repo()
+        .config()
+        .context("Failed to open git config")?;
+    config
+        .save(&mut git_config)
+        .context("Failed to save config")?;
 
     // Install git alias for viewing engram notes
     let _ = git_config.set_str("alias.loge", "log --notes=refs/notes/engram");
@@ -74,6 +79,15 @@ pub fn run(args: &InitArgs) -> Result<()> {
     } else {
         false
     };
+
+    // Register in global config for cross-repo search
+    if let Some(workdir) = storage.workdir() {
+        if let Ok(mut global) = GlobalConfig::load() {
+            if global.add_repo(workdir) {
+                let _ = global.save();
+            }
+        }
+    }
 
     // Auto-annotate any existing engram-linked commits
     let annotated = auto_annotate_existing(&storage);

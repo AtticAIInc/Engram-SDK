@@ -16,6 +16,8 @@ engram-capture = { workspace = true }
 engram-query = { workspace = true }
 engram-protocol = { workspace = true }
 engram-mcp = { workspace = true }
+engram-dashboard = { workspace = true }
+engram-tui = { workspace = true }
 git2 = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

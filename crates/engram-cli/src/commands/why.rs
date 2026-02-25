@@ -8,12 +8,26 @@ use crate::output::OutputFormat;
 
 #[derive(Args)]
 pub struct WhyArgs {
-    /// File path to explain
+    /// File path to explain (use file:line for line-level reasoning)
     pub file: String,
 
     /// Maximum number of engrams to include
     #[arg(short = 'n', long, default_value = "20")]
     pub limit: usize,
+}
+
+/// Parse "file:line" syntax. Returns (file_path, Option<line_number>).
+fn parse_file_line(input: &str) -> (&str, Option<usize>) {
+    // Find the last colon that's followed by digits only
+    if let Some(pos) = input.rfind(':') {
+        let after = &input[pos + 1..];
+        if !after.is_empty() && after.chars().all(|c| c.is_ascii_digit()) {
+            if let Ok(line) = after.parse::<usize>() {
+                return (&input[..pos], Some(line));
+            }
+        }
+    }
+    (input, None)
 }
 
 pub fn run(args: &WhyArgs, format: OutputFormat) -> Result<()> {
@@ -23,13 +37,177 @@ pub fn run(args: &WhyArgs, format: OutputFormat) -> Result<()> {
         anyhow::bail!("Engram is not initialized. Run `engram init` first.");
     }
 
-    let search = SearchEngine::open(&storage).context("Failed to open search index")?;
+    let (file_path, line_number) = parse_file_line(&args.file);
+
+    if let Some(line) = line_number {
+        run_line_level(&storage, file_path, line, format)
+    } else {
+        run_file_level(&storage, file_path, args.limit, format)
+    }
+}
+
+fn run_line_level(
+    storage: &GitStorage,
+    file_path: &str,
+    line: usize,
+    format: OutputFormat,
+) -> Result<()> {
+    let repo = storage.repo();
+
+    // Use git blame to find which commit last touched this line
+    let blame = repo
+        .blame_file(std::path::Path::new(file_path), None)
+        .context(format!(
+            "Cannot blame '{}' — file may not exist or not be tracked",
+            file_path
+        ))?;
+
+    // Lines are 0-indexed in git2 blame
+    let hunk = blame
+        .get_line(line)
+        .context(format!("Line {} is out of range for '{}'", line, file_path))?;
+
+    let commit_oid = hunk.final_commit_id();
+    let commit_sha = commit_oid.to_string();
+
+    // Try to find the engram that produced this commit
+    let engram_data = storage
+        .find_by_commit_sha(&commit_sha)
+        .and_then(|id| storage.read(id.as_str()).ok());
+
+    // Also get the commit itself for context
+    let commit = repo.find_commit(commit_oid).ok();
+
+    match format {
+        OutputFormat::Json => {
+            let mut result = serde_json::json!({
+                "file": file_path,
+                "line": line,
+                "commit": commit_sha,
+                "commit_author": commit.as_ref().map(|c| c.author().name().unwrap_or("unknown").to_string()),
+                "commit_date": commit.as_ref().map(|c| {
+                    let time = c.time();
+                    chrono::DateTime::from_timestamp(time.seconds(), 0)
+                        .map(|dt| dt.to_rfc3339())
+                        .unwrap_or_default()
+                }),
+                "commit_message": commit.as_ref().map(|c| c.summary().unwrap_or("").to_string()),
+            });
+
+            if let Some(data) = &engram_data {
+                let m = &data.manifest;
+                result["engram"] = serde_json::json!({
+                    "id": m.id.as_str(),
+                    "agent": m.agent.name,
+                    "model": m.agent.model,
+                    "request": data.intent.original_request,
+                    "goal": data.intent.interpreted_goal,
+                    "summary": data.intent.summary.as_deref().or(m.summary.as_deref()),
+                    "tokens": m.token_usage.total_tokens,
+                    "cost_usd": m.token_usage.effective_cost(m.agent.model.as_deref()),
+                    "dead_ends": data.intent.dead_ends.iter().map(|de| serde_json::json!({
+                        "approach": de.approach,
+                        "reason": de.reason,
+                    })).collect::<Vec<_>>(),
+                    "decisions": data.intent.decisions.iter().map(|d| serde_json::json!({
+                        "description": d.description,
+                        "rationale": d.rationale,
+                    })).collect::<Vec<_>>(),
+                });
+            }
+
+            println!("{}", serde_json::to_string_pretty(&result).unwrap());
+        }
+        OutputFormat::Text | OutputFormat::Markdown => {
+            println!("Why does `{}` line {} exist?", file_path, line);
+            println!("{}", "=".repeat(30 + file_path.len()));
+            println!();
+
+            // Show commit info
+            if let Some(c) = &commit {
+                let summary = c.summary().unwrap_or("(no message)");
+                println!(
+                    "Last changed by commit {}",
+                    &commit_sha[..8.min(commit_sha.len())]
+                );
+                println!("  Message: {summary}");
+                if let Some(author) = c.author().name() {
+                    println!("  Author:  {author}");
+                }
+                println!();
+            }
+
+            // Show engram reasoning
+            if let Some(data) = &engram_data {
+                let m = &data.manifest;
+                let model = m.agent.model.as_deref().unwrap_or("unknown");
+                let cost = m
+                    .token_usage
+                    .effective_cost(m.agent.model.as_deref())
+                    .unwrap_or(0.0);
+
+                println!("AI reasoning ({}, {}):", m.agent.name, model);
+                println!("  Request: \"{}\"", data.intent.original_request);
+
+                if let Some(goal) = &data.intent.interpreted_goal {
+                    if goal != &data.intent.original_request {
+                        println!("  Goal: {goal}");
+                    }
+                }
+
+                if let Some(summary) = data.intent.summary.as_deref().or(m.summary.as_deref()) {
+                    println!("  Result: {summary}");
+                }
+
+                println!(
+                    "  Tokens: {} | Cost: ${:.2}",
+                    m.token_usage.total_tokens, cost
+                );
+
+                if !data.intent.dead_ends.is_empty() {
+                    println!("  Dead ends:");
+                    for de in &data.intent.dead_ends {
+                        println!("    - {}: {}", de.approach, de.reason);
+                    }
+                }
+
+                if !data.intent.decisions.is_empty() {
+                    println!("  Decisions:");
+                    for d in &data.intent.decisions {
+                        println!("    - {}: {}", d.description, d.rationale);
+                    }
+                }
+            } else {
+                println!(
+                    "No engram found for commit {}.",
+                    &commit_sha[..8.min(commit_sha.len())]
+                );
+                println!("This line was changed outside of an engram-tracked session.");
+                println!();
+                println!(
+                    "Tip: Use `engram why {}` for file-level reasoning history.",
+                    file_path
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn run_file_level(
+    storage: &GitStorage,
+    file_path: &str,
+    limit: usize,
+    format: OutputFormat,
+) -> Result<()> {
+    let search = SearchEngine::open(storage).context("Failed to open search index")?;
     let results = search
-        .search_by_file(&storage, &args.file, args.limit)
+        .search_by_file(storage, file_path, limit)
         .context("Search failed")?;
 
     if results.is_empty() {
-        println!("No reasoning history found for '{}'.", args.file);
+        println!("No reasoning history found for '{}'.", file_path);
         return Ok(());
     }
 
@@ -43,8 +221,8 @@ pub fn run(args: &WhyArgs, format: OutputFormat) -> Result<()> {
     entries.sort_by_key(|e| e.manifest.created_at);
 
     match format {
-        OutputFormat::Json => print_json(&args.file, &entries),
-        OutputFormat::Text | OutputFormat::Markdown => print_narrative(&args.file, &entries),
+        OutputFormat::Json => print_json(file_path, &entries),
+        OutputFormat::Text | OutputFormat::Markdown => print_narrative(file_path, &entries),
     }
 
     Ok(())

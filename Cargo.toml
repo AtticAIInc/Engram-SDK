@@ -7,6 +7,8 @@ members = [
     "crates/engram-protocol",
     "crates/engram-sdk",
     "crates/engram-mcp",
+    "crates/engram-dashboard",
+    "crates/engram-tui",
     "crates/engram-cli",
 ]
 
@@ -25,6 +27,8 @@ engram-query = { path = "crates/engram-query" }
 engram-protocol = { path = "crates/engram-protocol" }
 engram-sdk = { path = "crates/engram-sdk" }
 engram-mcp = { path = "crates/engram-mcp" }
+engram-dashboard = { path = "crates/engram-dashboard" }
+engram-tui = { path = "crates/engram-tui" }
 
 # Git (vendored bundles libgit2 + openssl so no system deps needed)
 git2 = { version = "0.20", features = ["vendored-libgit2", "vendored-openssl"] }
@@ -63,6 +67,10 @@ schemars = "1"
 
 # Search
 tantivy = "0.22"
+
+# Config
+toml = "0.8"
+dirs = "6"
 
 # Testing
 tempfile = "3"
