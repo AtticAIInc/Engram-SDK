@@ -1,0 +1,23 @@
+{
+  "id": "542084f5c8024ff4b1246a660bd53ecd",
+  "version": 1,
+  "created_at": "2026-02-25T04:56:33.594Z",
+  "finished_at": "2026-02-25T05:25:11.013Z",
+  "agent": {
+    "name": "claude-code",
+    "model": "claude-opus-4-6"
+  },
+  "git_commits": [
+    "89ecd080b2539dcac1ff472b0485cdd10abab029"
+  ],
+  "token_usage": {
+    "input_tokens": 321,
+    "output_tokens": 7074,
+    "cache_read_tokens": 13990257,
+    "cache_write_tokens": 332510,
+    "total_tokens": 14330162
+  },
+  "summary": "Where would you take this project next if you wanted to make it even more valuable",
+  "capture_mode": "import",
+  "source_hash": "a6d683e6d3652fbbd0c9a401b4e38b9a78585001ead9932f409ca1b6a30de5c9"
+}
