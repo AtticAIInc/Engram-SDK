@@ -70,10 +70,11 @@ pub fn run(args: &ConfigArgs) -> Result<()> {
                 println!("No configuration values set.");
                 println!();
                 println!("Available keys:");
-                println!("  anthropic_api_key    Anthropic API key for LLM summarization");
+                println!("  anthropic_api_key      Anthropic API key for LLM summarization");
                 println!(
-                    "  summarize_model      Model override (default: claude-haiku-4-5-20251001)"
+                    "  summarize_model        Model override (default: claude-haiku-4-5-20251001)"
                 );
+                println!("  update_check_enabled   Check for new versions (default: true)");
                 return Ok(());
             }
 

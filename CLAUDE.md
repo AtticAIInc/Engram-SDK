@@ -13,7 +13,7 @@ Engram captures AI agent reasoning as first-class, versioned data in Git. Each "
 ```bash
 source "$HOME/.cargo/env"             # Ensure cargo is on PATH
 cargo build --workspace               # Build all crates
-cargo test --workspace                # Run all Rust tests (161 currently)
+cargo test --workspace                # Run all Rust tests (166 currently)
 cargo test -p engram-core             # Test a single crate
 cargo clippy --workspace -- -D warnings  # Lint (zero warnings policy)
 cargo fmt --all -- --check            # Format check
@@ -30,7 +30,7 @@ cd sdks/python && pip install -e ".[dev]" && python3 -m pytest tests/ -v
 cd sdks/typescript && npm install && npx vitest run
 ```
 
-**Total test count: 161 Rust + 14 Python + 9 TypeScript = 184 tests.**
+**Total test count: 166 Rust + 14 Python + 9 TypeScript = 189 tests.**
 
 ## Versioning
 
@@ -78,7 +78,8 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
   - `objects.rs` — Creates Git blobs, trees, and commits for an engram
   - `refs.rs` — Manages refs under `refs/engrams/<ab>/<full-id>` with fanout
   - `read.rs` — Reads engram data back from Git objects
-- `src/config/` — `EngramConfig` in `.git/config` under `[engram]`; `GlobalConfig` at `~/.config/engram/repos.toml` for cross-repo search and global settings. `Settings` struct holds `anthropic_api_key` and `summarize_model` with env var precedence.
+- `src/config/` — `EngramConfig` in `.git/config` under `[engram]`; `GlobalConfig` at `~/.config/engram/repos.toml` for cross-repo search and global settings. `Settings` struct holds `anthropic_api_key`, `summarize_model`, and `update_check_enabled` with env var precedence.
+- `src/update.rs` — Update notification: `check_for_update()` checks GitHub Releases API with 24h cache at `~/.config/engram/update-cache.json`. Feature-gated behind `update-check` (`reqwest` optional dep). `VersionTriple` for semver comparison. `is_update_check_disabled()` checks env + config.
 - `src/pricing.rs` — Static model pricing table (Anthropic + OpenAI) with `estimate_cost()`. `TokenUsage::effective_cost(model)` returns explicit cost if set, else estimates from pricing.
 - `src/notes.rs` — Git notes formatting: `format_note(data: &EngramData) -> String` for attaching reasoning metadata to commits. Uses `refs/notes/engram` namespace.
 - `src/error.rs` — `CoreError` enum (thiserror), includes `InvalidId` variant
@@ -127,6 +128,7 @@ sdks/typescript/         TypeScript SDK (git CLI via execFileSync), install with
 - **Cross-repo search**: Global config at `~/.config/engram/repos.toml` (via `toml` + `dirs` crates). `engram init` auto-registers repos. `engram search --global` walks all registered repos, opens each search index, merges results by score.
 - **LLM summarization**: `engram-capture/src/summarize.rs` calls Claude Haiku (`claude-haiku-4-5-20251001`) via `reqwest` blocking client to enrich intent fields at import time. API key resolved via: env var `ANTHROPIC_API_KEY` → `GlobalConfig.settings.anthropic_api_key` → skip. Model resolved via: env var `ENGRAM_SUMMARIZE_MODEL` → `GlobalConfig.settings.summarize_model` → default. Prompt sends condensed transcript (user messages full, assistant text 500 chars, tool_use name + brief input, thinking 300 chars, skips tool_result) capped at 50k chars. Response is structured JSON with `summary`, `interpreted_goal`, `dead_ends[]`, `decisions[]`. Integrated into all import paths: `engram import`, `--auto-detect`, `session-end` hook, and auto-capture. `--no-summarize` flag disables it. All failures fall back silently to heuristic extraction.
 - **Config command**: `engram config` with `set`/`get`/`list`/`path` subcommands. Manages `GlobalConfig.settings` in `~/.config/engram/repos.toml`. API keys masked in output (first 4 + last 4 chars). Config file gets 0600 permissions on Unix since it may contain API keys. `engram init` shows LLM summarize status and hints about API key setup when not configured.
+- **Update notification**: Background thread checks GitHub Releases API for newer versions, cached for 24h at `~/.config/engram/update-cache.json`. `reqwest` is feature-gated behind `update-check` in `engram-core` (enabled by `engram-cli`). Notification on stderr only, skipped when not a TTY. Disabled via `ENGRAM_NO_UPDATE_CHECK=1` env var or `engram config set update_check_enabled false`. `engram version` does a forced synchronous check. Excluded commands: `HookHandler`, `Mcp`, `Browse`, `Dashboard`. Manual semver parsing (`VersionTriple`) avoids adding `semver` crate.
 - **Dashboard**: `engram-dashboard` crate with axum 0.8 + tower-http 0.6. HTML/JS SPA embedded via `include_str!()` — single binary, no external files. JSON API for engrams, stats, trends, search.
 - **TUI browser**: `engram-tui` crate with ratatui 0.29 + crossterm 0.28. Split-panel layout, inline search, keyboard navigation. Detail panel shows intent, file changes, dead ends, decisions.
 - **GitHub Action**: Composite action at `action/action.yml` downloads pre-built binaries from GitHub Releases, runs `engram pr-summary`, and posts sticky PR comments via `marocchino/sticky-pull-request-comment@v2`. Release workflow at `.github/workflows/release.yml` cross-compiles for linux-musl (x64/arm64 via `cross`) and macOS (x64/arm64 native).

@@ -5,3 +5,4 @@ pub mod model;
 pub mod notes;
 pub mod pricing;
 pub mod storage;
+pub mod update;

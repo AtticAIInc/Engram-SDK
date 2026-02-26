@@ -11,7 +11,7 @@ name = "engram"
 path = "src/main.rs"
 
 [dependencies]
-engram-core = { workspace = true }
+engram-core = { workspace = true, features = ["update-check"] }
 engram-capture = { workspace = true }
 engram-query = { workspace = true }
 engram-protocol = { workspace = true }

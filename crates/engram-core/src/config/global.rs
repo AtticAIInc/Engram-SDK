@@ -20,6 +20,11 @@ pub struct Settings {
     /// Env var `ENGRAM_SUMMARIZE_MODEL` takes precedence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summarize_model: Option<String>,
+
+    /// Whether update checks are enabled (default: true when absent).
+    /// Set to "false" to disable. Env var `ENGRAM_NO_UPDATE_CHECK=1` also disables.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_check_enabled: Option<String>,
 }
 
 /// Global engram configuration shared across repositories.
@@ -124,6 +129,10 @@ impl GlobalConfig {
                 self.settings.summarize_model = Some(value.to_string());
                 Ok(())
             }
+            "update_check_enabled" | "settings.update_check_enabled" => {
+                self.settings.update_check_enabled = Some(value.to_string());
+                Ok(())
+            }
             _ => Err(CoreError::Config(format!("Unknown config key: {key}"))),
         }
     }
@@ -135,6 +144,9 @@ impl GlobalConfig {
                 self.settings.anthropic_api_key.clone()
             }
             "summarize_model" | "settings.summarize_model" => self.settings.summarize_model.clone(),
+            "update_check_enabled" | "settings.update_check_enabled" => {
+                self.settings.update_check_enabled.clone()
+            }
             _ => None,
         }
     }
@@ -144,6 +156,10 @@ impl GlobalConfig {
         vec![
             ("anthropic_api_key", self.settings.anthropic_api_key.clone()),
             ("summarize_model", self.settings.summarize_model.clone()),
+            (
+                "update_check_enabled",
+                self.settings.update_check_enabled.clone(),
+            ),
         ]
     }
 
@@ -244,8 +260,9 @@ mod tests {
     fn test_list_returns_all_keys() {
         let config = GlobalConfig::default();
         let entries = config.list();
-        assert_eq!(entries.len(), 2);
+        assert_eq!(entries.len(), 3);
         assert_eq!(entries[0].0, "anthropic_api_key");
         assert_eq!(entries[1].0, "summarize_model");
+        assert_eq!(entries[2].0, "update_check_enabled");
     }
 }

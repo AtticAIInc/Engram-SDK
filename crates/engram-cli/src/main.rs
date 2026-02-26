@@ -1,3 +1,6 @@
+use std::io::IsTerminal;
+use std::sync::mpsc;
+
 use anyhow::Result;
 use clap::Parser;
 use tracing_subscriber::{fmt, EnvFilter};
@@ -37,11 +40,47 @@ fn init_tracing(verbose: u8) {
         .init();
 }
 
+/// Spawn a background thread for update checking.
+/// Returns None for commands that should not trigger checks.
+fn maybe_spawn_update_check(
+    command: &commands::Commands,
+) -> Option<mpsc::Receiver<Option<engram_core::update::UpdateInfo>>> {
+    // Skip for internal/long-running commands
+    if matches!(
+        command,
+        commands::Commands::HookHandler(_)
+            | commands::Commands::Mcp
+            | commands::Commands::Browse(_)
+            | commands::Commands::Dashboard(_)
+            | commands::Commands::Version
+    ) {
+        return None;
+    }
+
+    // Skip if disabled (cheap check before spawning thread)
+    if engram_core::update::is_update_check_disabled() {
+        return None;
+    }
+
+    let (tx, rx) = mpsc::channel();
+    let current = env!("CARGO_PKG_VERSION").to_string();
+
+    std::thread::spawn(move || {
+        let result = engram_core::update::check_for_update(&current, false);
+        let _ = tx.send(result);
+    });
+
+    Some(rx)
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
 
-    match &cli.command {
+    // Spawn background update check (non-blocking)
+    let update_rx = maybe_spawn_update_check(&cli.command);
+
+    let result = match &cli.command {
         commands::Commands::Init(args) => commands::init::run(args),
         commands::Commands::Config(args) => commands::config::run(args),
         commands::Commands::Record(args) => commands::record::run(args),
@@ -70,5 +109,16 @@ fn main() -> Result<()> {
         commands::Commands::Dashboard(args) => commands::dashboard::run(args),
         commands::Commands::Version => commands::version::run(),
         commands::Commands::HookHandler(args) => commands::hook_handler::run(args),
+    };
+
+    // After command completes, check if update notification is ready
+    if let Some(rx) = update_rx {
+        if let Ok(Some(info)) = rx.try_recv() {
+            if std::io::stderr().is_terminal() {
+                eprintln!("{}", engram_core::update::format_update_notice(&info));
+            }
+        }
     }
+
+    result
 }
