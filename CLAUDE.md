@@ -32,6 +32,19 @@ cd sdks/typescript && npm install && npx vitest run
 
 **Total test count: 161 Rust + 14 Python + 9 TypeScript = 184 tests.**
 
+## Versioning
+
+**All version numbers must stay in sync.** When making changes that warrant a version bump, update all 4 files:
+
+| File | Field |
+|------|-------|
+| `Cargo.toml` | `[workspace.package] version` (all 9 Rust crates inherit this) |
+| `sdks/python/pyproject.toml` | `[project] version` |
+| `sdks/python/src/engram/__init__.py` | `__version__` |
+| `sdks/typescript/package.json` | `"version"` |
+
+Current version: **0.2.0**
+
 ## Architecture
 
 Cargo workspace with 9 crates under `crates/`:
