@@ -1,0 +1,23 @@
+{
+  "id": "41ba733c635f4f6eb0f02452e7f9e1a9",
+  "version": 1,
+  "created_at": "2026-03-14T02:57:59.744Z",
+  "finished_at": "2026-03-14T03:31:50.597Z",
+  "agent": {
+    "name": "claude-code",
+    "model": "claude-opus-4-6"
+  },
+  "git_commits": [
+    "fb496b04ebf4d0c333602aa2a79fd8c3b4d8eafa"
+  ],
+  "token_usage": {
+    "input_tokens": 313,
+    "output_tokens": 16528,
+    "cache_read_tokens": 28145835,
+    "cache_write_tokens": 1138594,
+    "total_tokens": 29301270
+  },
+  "summary": "🧠 HIVE MIND COLLECTIVE INTELLIGENCE SYSTEM\n══════════════════...",
+  "capture_mode": "import",
+  "source_hash": "a12e776858797745e670bf262df6ba6e44ad739b80648809bc46736464bfc87e"
+}
