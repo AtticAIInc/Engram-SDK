@@ -42,14 +42,24 @@ pub fn build_router(repo_path: &Path) -> Router {
         .route("/api/notes", get(notes_handler))
         .route("/api/engrams/{id}/transcript", get(transcript_handler))
         .route("/api/graph", get(graph_handler))
-        .layer(CorsLayer::permissive())
+        .layer(
+            CorsLayer::new()
+                .allow_origin(tower_http::cors::AllowOrigin::predicate(|origin, _| {
+                    origin
+                        .to_str()
+                        .ok()
+                        .is_some_and(|o| o.starts_with("http://localhost") || o.starts_with("http://127.0.0.1"))
+                }))
+                .allow_methods(tower_http::cors::Any)
+                .allow_headers(tower_http::cors::Any),
+        )
         .with_state(state)
 }
 
 /// Start the dashboard server.
 pub async fn serve(repo_path: &Path, port: u16) -> std::io::Result<()> {
     let app = build_router(repo_path);
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}")).await?;
     tracing::info!("Dashboard listening on http://localhost:{port}");
     axum::serve(listener, app).await
 }
@@ -450,6 +460,9 @@ fn parse_note_header(line: &str) -> (String, String, String, String) {
     let mut tokens = String::new();
 
     if let Some(bracket_end) = line.find(']') {
+        if bracket_end == 0 || !line.starts_with('[') {
+            return (agent, model, cost, tokens);
+        }
         let inner = &line[1..bracket_end];
         if let Some(slash) = inner.find('/') {
             agent = inner[..slash].to_string();

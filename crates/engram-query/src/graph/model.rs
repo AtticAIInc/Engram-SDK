@@ -97,9 +97,10 @@ impl ContextGraph {
                 NodeType::Agent => "diamond",
                 NodeType::Commit => "ellipse",
             };
+            let escaped_id = node.id.replace('\\', "\\\\").replace('"', "\\\"");
+            let escaped_label = node.label.replace('\\', "\\\\").replace('"', "\\\"");
             dot.push_str(&format!(
-                "  \"{}\" [label=\"{}\" shape={}];\n",
-                node.id, node.label, shape
+                "  \"{escaped_id}\" [label=\"{escaped_label}\" shape={shape}];\n",
             ));
         }
 
@@ -111,9 +112,10 @@ impl ContextGraph {
                 EdgeType::FollowsFrom => "follows_from",
                 EdgeType::TouchedFile => "touched_file",
             };
+            let escaped_from = edge.from.replace('\\', "\\\\").replace('"', "\\\"");
+            let escaped_to = edge.to.replace('\\', "\\\\").replace('"', "\\\"");
             dot.push_str(&format!(
-                "  \"{}\" -> \"{}\" [label=\"{}\"];\n",
-                edge.from, edge.to, label
+                "  \"{escaped_from}\" -> \"{escaped_to}\" [label=\"{label}\"];\n",
             ));
         }
 

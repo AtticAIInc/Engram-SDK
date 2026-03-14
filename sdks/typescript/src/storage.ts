@@ -2,7 +2,7 @@
  * Git-native storage for engrams using git CLI commands.
  */
 
-import { execFileSync, execSync } from "child_process";
+import { execFileSync } from "child_process";
 import type { EngramData, Intent, Lineage, Manifest, Operations, Transcript } from "./model.js";
 import { intentToMarkdown, transcriptToJsonl } from "./model.js";
 

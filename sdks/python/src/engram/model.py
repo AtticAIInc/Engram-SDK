@@ -447,10 +447,34 @@ class Operations:
 
     @classmethod
     def from_dict(cls, d: dict) -> Operations:
+        tool_calls = []
+        for tc in d.get("tool_calls", []):
+            try:
+                tool_calls.append(ToolCall(
+                    timestamp=datetime.fromisoformat(tc["timestamp"]),
+                    tool_name=tc["tool_name"],
+                    input=tc.get("input"),
+                    output_summary=tc.get("output_summary"),
+                    duration_ms=tc.get("duration_ms"),
+                    is_error=tc.get("is_error", False),
+                ))
+            except (KeyError, ValueError):
+                continue
+        shell_commands = []
+        for sc in d.get("shell_commands", []):
+            try:
+                shell_commands.append(ShellCommand(
+                    timestamp=datetime.fromisoformat(sc["timestamp"]),
+                    command=sc["command"],
+                    exit_code=sc.get("exit_code"),
+                    duration_ms=sc.get("duration_ms"),
+                ))
+            except (KeyError, ValueError):
+                continue
         return cls(
-            tool_calls=[],  # ToolCall parsing requires timestamp handling; keep simple
+            tool_calls=tool_calls,
             file_changes=[FileChange.from_dict(fc) for fc in d.get("file_changes", [])],
-            shell_commands=[],
+            shell_commands=shell_commands,
         )
 
 

@@ -281,7 +281,11 @@ fn render_markdown(entries: &[AuditEntry]) -> String {
             .map(|c| format!("${c:.2}"))
             .unwrap_or_else(|| "-".to_string());
         let msg = if e.commit_message.len() > 50 {
-            format!("{}...", &e.commit_message[..47])
+            let mut end = 47;
+            while end > 0 && !e.commit_message.is_char_boundary(end) {
+                end -= 1;
+            }
+            format!("{}...", &e.commit_message[..end])
         } else {
             e.commit_message.clone()
         };
@@ -324,13 +328,13 @@ fn render_csv(entries: &[AuditEntry]) -> String {
         let model = e.model.as_deref().unwrap_or("");
         let tokens = e.tokens.map(|t| t.to_string()).unwrap_or_default();
         let cost = e.cost.map(|c| format!("{c:.4}")).unwrap_or_default();
-        // Escape message for CSV
+        // Escape all fields for CSV (quote fields that may contain commas/newlines)
         let msg = e.commit_message.replace('"', "\"\"");
+        let author = e.commit_author.replace('"', "\"\"");
 
         out.push_str(&format!(
-            "{short_sha},{},{},\"{msg}\",{},{engram_short},{agent},{model},{tokens},{cost}\n",
+            "{short_sha},{},\"{author}\",\"{msg}\",{},{engram_short},{agent},{model},{tokens},{cost}\n",
             e.commit_date,
-            e.commit_author,
             e.engram_id.is_some(),
         ));
     }

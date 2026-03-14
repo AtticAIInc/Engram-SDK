@@ -154,7 +154,11 @@ fn build_prompt(data: &EngramData) -> String {
 
     let full = parts.join("\n");
     if full.len() > MAX_PROMPT_CHARS {
-        full[..MAX_PROMPT_CHARS].to_string()
+        let mut end = MAX_PROMPT_CHARS;
+        while end > 0 && !full.is_char_boundary(end) {
+            end -= 1;
+        }
+        full[..end].to_string()
     } else {
         full
     }
@@ -314,6 +318,9 @@ fn parse_response(text: &str) -> Result<SummarizeResponse, CaptureError> {
 }
 
 /// Apply LLM-generated fields to the EngramData.
+///
+/// Merges LLM insights with existing heuristic-extracted ones rather than
+/// replacing them, so no extracted insight is lost.
 fn apply_response(data: &mut EngramData, response: &SummarizeResponse) {
     if let Some(summary) = &response.summary {
         data.manifest.summary = Some(summary.clone());
@@ -322,11 +329,31 @@ fn apply_response(data: &mut EngramData, response: &SummarizeResponse) {
     if let Some(goal) = &response.interpreted_goal {
         data.intent.interpreted_goal = Some(goal.clone());
     }
+    // Merge dead ends: LLM findings first, then append heuristic ones not already covered
     if !response.dead_ends.is_empty() {
-        data.intent.dead_ends = response.dead_ends.clone();
+        let mut merged = response.dead_ends.clone();
+        for existing in &data.intent.dead_ends {
+            let dominated = merged
+                .iter()
+                .any(|de| de.approach.to_lowercase() == existing.approach.to_lowercase());
+            if !dominated {
+                merged.push(existing.clone());
+            }
+        }
+        data.intent.dead_ends = merged;
     }
+    // Same merge strategy for decisions
     if !response.decisions.is_empty() {
-        data.intent.decisions = response.decisions.clone();
+        let mut merged = response.decisions.clone();
+        for existing in &data.intent.decisions {
+            let dominated = merged.iter().any(|d| {
+                d.description.to_lowercase() == existing.description.to_lowercase()
+            });
+            if !dominated {
+                merged.push(existing.clone());
+            }
+        }
+        data.intent.decisions = merged;
     }
 }
 
@@ -398,8 +425,19 @@ mod tests {
 
     #[test]
     fn test_summarize_intent_no_api_key() {
-        // When ANTHROPIC_API_KEY is not set, summarize_intent should be a no-op
+        // When no API key is available (env or config), summarize_intent should be a no-op.
+        // Skip if global config has an API key since we can't isolate that in tests.
         std::env::remove_var("ANTHROPIC_API_KEY");
+        if let Ok(config) = engram_core::config::GlobalConfig::load() {
+            if config
+                .settings
+                .anthropic_api_key
+                .as_ref()
+                .is_some_and(|k| !k.is_empty())
+            {
+                return; // Global config has an API key; can't test the no-key path here
+            }
+        }
         let mut data = make_test_data();
         let original_summary = data.manifest.summary.clone();
         summarize_intent(&mut data).unwrap();

@@ -52,9 +52,16 @@ impl SearchEngine {
     }
 
     /// Index a single new engram (incremental update).
+    ///
+    /// If the index directory doesn't exist yet, this is a no-op (the index
+    /// will be created on the first search via `ensure_index`).
     pub fn index_engram(&self, data: &EngramData) -> Result<(), QueryError> {
         if !self.index_path.exists() {
-            return Ok(()); // Index doesn't exist yet, skip
+            tracing::debug!(
+                "Search index not yet created at {}, skipping incremental update",
+                self.index_path.display()
+            );
+            return Ok(());
         }
         let mut writer = EngramIndexWriter::open(&self.index_path)?;
         writer.index_engram(data)?;

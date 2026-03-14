@@ -53,15 +53,19 @@ impl std::fmt::Display for EngramId {
     }
 }
 
-impl From<String> for EngramId {
-    fn from(s: String) -> Self {
-        Self(s)
+impl TryFrom<String> for EngramId {
+    type Error = CoreError;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::parse(s)
     }
 }
 
-impl From<&str> for EngramId {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
+impl TryFrom<&str> for EngramId {
+    type Error = CoreError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        Self::parse(s)
     }
 }
 

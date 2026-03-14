@@ -202,7 +202,11 @@ fn run_by_file(
             println!("{}", "-".repeat(60));
             for (path, (sessions, tokens, cost)) in &sorted {
                 let display_path = if path.len() > 38 {
-                    format!("...{}", &path[path.len() - 35..])
+                    let mut start = path.len() - 35;
+                    while start < path.len() && !path.is_char_boundary(start) {
+                        start += 1;
+                    }
+                    format!("...{}", &path[start..])
                 } else {
                     path.clone()
                 };
@@ -279,7 +283,11 @@ fn run_by_branch(
             println!("{}", "-".repeat(60));
             for (branch, (sessions, tokens, cost)) in &sorted {
                 let display = if branch.len() > 28 {
-                    format!("...{}", &branch[branch.len() - 25..])
+                    let mut start = branch.len() - 25;
+                    while start < branch.len() && !branch.is_char_boundary(start) {
+                        start += 1;
+                    }
+                    format!("...{}", &branch[start..])
                 } else {
                     branch.clone()
                 };

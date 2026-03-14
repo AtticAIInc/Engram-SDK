@@ -15,6 +15,9 @@ For full documentation and guides, visit: https://the-attic-ai.gitbook.io/untitl
 git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK && cargo install --path crates/engram-cli
 
+# Upgrade (pull latest and reinstall)
+cd Engram-SDK && git pull && cargo install --path crates/engram-cli
+
 # Initialize in your repo (all automation enabled by default)
 engram init
 
@@ -98,6 +101,23 @@ engram import .aider.chat.history.md --format aider
 engram import --dry-run                                  # Preview what would be imported
 ```
 Parses Claude Code JSONL sessions and Aider chat history markdown. Re-importing the same file is safe -- duplicate detection via content hashing prevents double imports.
+
+## LLM-Powered Summarization
+
+When an Anthropic API key is configured, engram sends a condensed transcript to Claude during import to generate high-quality summaries, interpreted goals, dead ends, and decisions. Without an API key, engram falls back to heuristic pattern extraction (still useful, but less nuanced).
+
+```bash
+# Set your API key (stored in ~/.config/engram/repos.toml, 0600 permissions)
+engram config set anthropic_api_key sk-ant-api03-...
+
+# Or use an environment variable (takes precedence)
+export ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# Optionally override the model (default: claude-haiku-4-5-20251001)
+engram config set summarize_model claude-sonnet-4-20250514
+```
+
+LLM insights are merged with heuristic-extracted ones, so no extracted insight is lost. The API key is masked in output (`sk-a...03-x`) and the config file is owner-readable only.
 
 ### Mode 4: SDK Integration
 
@@ -216,7 +236,7 @@ engram stats --by-branch        # Cost per feature branch
 engram stats --trend            # Daily cost over last 30 days
 ```
 
-Even when your agent doesn't report costs directly (e.g. Claude Code imports), engram estimates costs from the model name and token counts using built-in API pricing tables. Supports Claude (Opus, Sonnet, Haiku), GPT-4o/4-turbo/4/3.5, and o1/o3 models with cache-aware pricing. Explicit cost data takes priority when available.
+Even when your agent doesn't report costs directly (e.g. Claude Code imports), engram estimates costs from the model name and token counts using built-in API pricing tables. Supports Claude (Opus, Sonnet, Haiku), GPT-4o/4-turbo/4/3.5, o1/o1-mini, o3/o3-mini, and o4-mini models with cache-aware pricing. Explicit cost data takes priority when available.
 
 ## Recurring Dead-End Detection
 
@@ -348,6 +368,7 @@ Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Applicat
 | Command       | Description |
 |---------------|-------------|
 | `init`        | Initialize engram with smart defaults (`--no-auto-capture`, `--no-auto-push`, `--no-claude-code` to opt out) |
+| `config`      | Manage global configuration (`set`, `get`, `list`, `path`) |
 | `record`      | Record an agent session via PTY wrapper (`--agent`, `--model`) |
 | `import`      | Import sessions from Claude Code or Aider (`--auto-detect`, `--dry-run`) |
 | `log`         | List engrams (`--cost`, `--by-agent`, `--limit N`) |
@@ -364,11 +385,14 @@ Add to `~/.config/Claude/claude_desktop_config.json` (macOS: `~/Library/Applicat
 | `dead-ends`   | Surface dead ends (`--recurring`, `--query`, `--id`) |
 | `annotate`    | Attach engram reasoning as git notes (`--dry-run`, `--force`, range) |
 | `blame`       | Show reasoning blame for a file |
+| `audit`       | Generate audit trail report for compliance (`--format csv`) |
 | `gc`          | Garbage collect old engrams (`--older-than`, `--dry-run`) |
 | `push`        | Push engram refs to a remote |
 | `pull`        | Pull engram refs and reindex |
 | `fetch`       | Fetch engram refs from a remote |
 | `reindex`     | Rebuild the search index |
+| `browse`      | Interactive terminal UI for browsing engrams |
+| `dashboard`   | Start the web dashboard for visualizing engram data (`--port`) |
 | `version`     | Print version information |
 
 All commands support `--format json` for machine-readable output and `-v`/`-vv`/`-vvv` for verbosity.
@@ -383,6 +407,8 @@ crates/
   engram-protocol/   Push/pull/fetch via Git refspecs
   engram-sdk/        Fluent Rust SDK for direct agent integration
   engram-mcp/        MCP server for AI agent integration (rmcp)
+  engram-dashboard/  Web dashboard (axum, embedded SPA)
+  engram-tui/        Interactive terminal UI (ratatui)
   engram-cli/        CLI binary (installed as `engram`)
 sdks/
   python/            Python SDK (git CLI)
@@ -407,7 +433,7 @@ git clone https://github.com/AtticAIInc/Engram-SDK.git
 cd Engram-SDK
 cargo build --workspace
 
-# Run tests (147 Rust + 10 Python + 7 TypeScript = 164 total)
+# Run tests (179 Rust + 10 Python + 7 TypeScript = 196 total)
 cargo test --workspace
 cd sdks/python && python3 -m pytest tests/
 cd sdks/typescript && npx vitest run

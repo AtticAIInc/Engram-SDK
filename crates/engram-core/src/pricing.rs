@@ -31,6 +31,15 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             cache_write_per_million: 3.75,
         },
     ),
+    (
+        "claude-haiku-4",
+        ModelPricing {
+            input_per_million: 0.80,
+            output_per_million: 4.0,
+            cache_read_per_million: 0.08,
+            cache_write_per_million: 1.0,
+        },
+    ),
     // Anthropic Claude 3.5
     (
         "claude-3-5-sonnet",
@@ -115,7 +124,25 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             cache_write_per_million: 0.625,
         },
     ),
-    // OpenAI o1/o3 reasoning models
+    // OpenAI o1/o3/o4 reasoning models — specific variants before generic
+    (
+        "o4-mini",
+        ModelPricing {
+            input_per_million: 1.10,
+            output_per_million: 4.40,
+            cache_read_per_million: 0.275,
+            cache_write_per_million: 1.375,
+        },
+    ),
+    (
+        "o3-mini",
+        ModelPricing {
+            input_per_million: 1.10,
+            output_per_million: 4.40,
+            cache_read_per_million: 0.55,
+            cache_write_per_million: 1.375,
+        },
+    ),
     (
         "o3",
         ModelPricing {
@@ -123,6 +150,15 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             output_per_million: 8.0,
             cache_read_per_million: 1.0,
             cache_write_per_million: 2.50,
+        },
+    ),
+    (
+        "o1-mini",
+        ModelPricing {
+            input_per_million: 3.0,
+            output_per_million: 12.0,
+            cache_read_per_million: 1.50,
+            cache_write_per_million: 3.75,
         },
     ),
     (

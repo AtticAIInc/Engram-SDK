@@ -99,10 +99,13 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
     let mut token_usage = TokenUsage::default();
     let mut transcript_entries = Vec::new();
     let mut tool_calls = Vec::new();
-    let mut file_changes = Vec::new();
+    let mut file_changes: Vec<FileChange> = Vec::new();
+    let mut shell_commands = Vec::new();
     let mut original_request = String::new();
     let mut reasoning_text = String::new(); // Collect assistant text for insight extraction
     let mut first_assistant_text: Option<String> = None; // For interpreted_goal
+    let mut last_assistant_text: Option<String> = None; // For better summary fallback
+    let mut error_dead_ends: Vec<(String, String)> = Vec::new(); // (tool_name, error)
 
     // Parse all lines
     for line in content.lines() {
@@ -177,6 +180,9 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
                     if first_assistant_text.is_none() && !text.trim().is_empty() {
                         first_assistant_text = Some(text.clone());
                     }
+                    if !text.trim().is_empty() {
+                        last_assistant_text = Some(text.clone());
+                    }
                 }
                 transcript_entries.push(TranscriptEntry {
                     timestamp: ts.unwrap_or_else(Utc::now),
@@ -206,6 +212,9 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
                                 if first_assistant_text.is_none() && !text.trim().is_empty() {
                                     first_assistant_text = Some(text.clone());
                                 }
+                                if !text.trim().is_empty() {
+                                    last_assistant_text = Some(text.clone());
+                                }
                             }
 
                             transcript_entries.push(TranscriptEntry {
@@ -232,15 +241,36 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
                                 .unwrap_or(serde_json::Value::Null);
 
                             // Track file operations
-                            if matches!(tool_name.as_str(), "Write" | "Edit" | "NotebookEdit") {
+                            if matches!(
+                                tool_name.as_str(),
+                                "Write" | "Edit" | "MultiEdit" | "NotebookEdit"
+                            ) {
                                 if let Some(path) = input.get("file_path").and_then(|p| p.as_str())
                                 {
-                                    let change_type = if tool_name == "Write" {
-                                        FileChangeType::Created
+                                    if let Some(existing) =
+                                        file_changes.iter_mut().find(|fc| fc.path == path)
+                                    {
+                                        // File already tracked. Edit/MultiEdit on a Created file
+                                        // means the file actually existed -> upgrade to Modified.
+                                        if matches!(tool_name.as_str(), "Edit" | "MultiEdit")
+                                            && matches!(
+                                                existing.change_type,
+                                                FileChangeType::Created
+                                            )
+                                        {
+                                            existing.change_type = FileChangeType::Modified;
+                                        }
                                     } else {
-                                        FileChangeType::Modified
-                                    };
-                                    if !file_changes.iter().any(|fc: &FileChange| fc.path == path) {
+                                        // New file path. Write/NotebookEdit = Created (new file),
+                                        // Edit/MultiEdit = Modified (existing file).
+                                        let change_type = if matches!(
+                                            tool_name.as_str(),
+                                            "Write" | "NotebookEdit"
+                                        ) {
+                                            FileChangeType::Created
+                                        } else {
+                                            FileChangeType::Modified
+                                        };
                                         file_changes.push(FileChange {
                                             path: path.to_string(),
                                             change_type,
@@ -248,6 +278,20 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
                                             lines_removed: None,
                                         });
                                     }
+                                }
+                            }
+
+                            // Track Bash commands as shell operations
+                            if tool_name == "Bash" {
+                                if let Some(cmd) =
+                                    input.get("command").and_then(|c| c.as_str())
+                                {
+                                    shell_commands.push(ShellCommand {
+                                        timestamp: ts.unwrap_or_else(Utc::now),
+                                        command: cmd.to_string(),
+                                        exit_code: None,
+                                        duration_ms: None,
+                                    });
                                 }
                             }
 
@@ -286,6 +330,26 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
                                 .get("is_error")
                                 .and_then(|e| e.as_bool())
                                 .unwrap_or(false);
+
+                            // Capture tool errors as dead ends — when a tool fails,
+                            // it usually indicates a rejected approach
+                            if is_error && !output.is_empty() {
+                                // Use the most recent tool call's name as context
+                                let tool_name = tool_calls
+                                    .last()
+                                    .map(|tc| tc.tool_name.clone())
+                                    .unwrap_or_else(|| "tool".to_string());
+                                let error_summary = if output.len() > 120 {
+                                    let mut end = 120;
+                                    while end > 0 && !output.is_char_boundary(end) {
+                                        end -= 1;
+                                    }
+                                    format!("{}...", &output[..end])
+                                } else {
+                                    output.clone()
+                                };
+                                error_dead_ends.push((tool_name, error_summary));
+                            }
 
                             transcript_entries.push(TranscriptEntry {
                                 timestamp: ts.unwrap_or_else(Utc::now),
@@ -344,6 +408,33 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
 
     let id = EngramId::new();
 
+    // Build a meaningful summary:
+    // 1. Prefer the last assistant text (usually summarizes what was done)
+    // 2. Fall back to original request
+    let summary = if let Some(last_text) = &last_assistant_text {
+        let trimmed = last_text.trim();
+        // Use last assistant text as summary if it's concise enough
+        if trimmed.len() <= 200 {
+            Some(trimmed.to_string())
+        } else {
+            let mut end = 200;
+            while end > 0 && !trimmed.is_char_boundary(end) {
+                end -= 1;
+            }
+            Some(format!("{}...", &trimmed[..end]))
+        }
+    } else if original_request.len() > 100 {
+        let mut end = 100;
+        while end > 0 && !original_request.is_char_boundary(end) {
+            end -= 1;
+        }
+        Some(format!("{}...", &original_request[..end]))
+    } else if original_request.is_empty() {
+        Some("Imported Claude Code session".into())
+    } else {
+        Some(original_request.clone())
+    };
+
     let manifest = Manifest {
         id,
         version: 1,
@@ -356,30 +447,47 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
         },
         git_commits: Vec::new(),
         token_usage,
-        summary: if original_request.len() > 100 {
-            Some(format!("{}...", &original_request[..100]))
-        } else if original_request.is_empty() {
-            Some("Imported Claude Code session".into())
-        } else {
-            Some(original_request.clone())
-        },
+        summary,
         tags: Vec::new(),
         capture_mode: CaptureMode::Import,
         source_hash: None,
     };
 
     // Extract dead ends and decisions from reasoning text
-    let insights = crate::session::extractor::extract_insights(reasoning_text.as_bytes());
+    let mut insights = crate::session::extractor::extract_insights(reasoning_text.as_bytes());
 
-    // Derive interpreted_goal from the first assistant response (truncated)
-    let interpreted_goal = first_assistant_text.map(|t| {
-        let trimmed = t.trim();
-        if trimmed.len() > 200 {
-            format!("{}...", &trimmed[..200])
-        } else {
-            trimmed.to_string()
-        }
-    });
+    // Add tool-error dead ends (tool failures indicate rejected approaches)
+    for (tool_name, error_msg) in &error_dead_ends {
+        insights.dead_ends.push(DeadEnd {
+            approach: format!("{tool_name} call"),
+            reason: error_msg.clone(),
+        });
+    }
+
+    // Derive interpreted_goal from the first assistant response (truncated),
+    // skipping generic responses like "I'll help" or "Let me"
+    let interpreted_goal = first_assistant_text
+        .as_deref()
+        .map(|t| t.trim())
+        .filter(|t| {
+            // Skip very short or generic responses
+            t.len() > 20
+                && !t.to_lowercase().starts_with("i'll help")
+                && !t.to_lowercase().starts_with("sure,")
+                && !t.to_lowercase().starts_with("sure!")
+                && !t.to_lowercase().starts_with("ok,")
+        })
+        .map(|t| {
+            if t.len() > 200 {
+                let mut end = 200;
+                while end > 0 && !t.is_char_boundary(end) {
+                    end -= 1;
+                }
+                format!("{}...", &t[..end])
+            } else {
+                t.to_string()
+            }
+        });
 
     let intent = Intent {
         original_request: if original_request.is_empty() {
@@ -396,7 +504,7 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
     let operations = Operations {
         tool_calls,
         file_changes,
-        shell_commands: Vec::new(),
+        shell_commands,
     };
 
     Ok(EngramData {
@@ -593,6 +701,33 @@ mod tests {
             .find(|fc| fc.path == "src/main.rs")
             .unwrap();
         assert!(matches!(main_rs.change_type, FileChangeType::Modified));
+    }
+
+    #[test]
+    fn test_write_then_edit_upgrades_to_modified() {
+        // Write creates a file, then Edit modifies it -> should be Modified, not Created
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Create and fix file"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"src/lib.rs","content":"fn main() {}"}},{"type":"tool_use","id":"t2","name":"Edit","input":{"file_path":"src/lib.rs","old_string":"fn main","new_string":"fn start"}}],"model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":50}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        assert_eq!(data.operations.file_changes.len(), 1);
+        let fc = &data.operations.file_changes[0];
+        assert_eq!(fc.path, "src/lib.rs");
+        // Edit after Write means the file existed -> Modified
+        assert!(matches!(fc.change_type, FileChangeType::Modified));
+    }
+
+    #[test]
+    fn test_edit_then_write_stays_modified() {
+        // Edit on existing file, then Write overwrites -> stays Modified
+        let jsonl = r#"{"type":"user","uuid":"u1","timestamp":"2026-01-15T10:00:00Z","message":{"role":"user","content":"Fix and rewrite file"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","timestamp":"2026-01-15T10:00:05Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"src/lib.rs","old_string":"old","new_string":"new"}},{"type":"tool_use","id":"t2","name":"Write","input":{"file_path":"src/lib.rs","content":"completely new content"}}],"model":"claude-sonnet-4-5","usage":{"input_tokens":100,"output_tokens":50}}}"#;
+
+        let data = parse_claude_code_session(jsonl).unwrap();
+        assert_eq!(data.operations.file_changes.len(), 1);
+        let fc = &data.operations.file_changes[0];
+        assert_eq!(fc.path, "src/lib.rs");
+        assert!(matches!(fc.change_type, FileChangeType::Modified));
     }
 
     #[test]

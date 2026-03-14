@@ -155,7 +155,11 @@ fn parse_aider_session(session_text: &str) -> Result<Option<EngramData>, Capture
         git_commits: Vec::new(),
         token_usage,
         summary: if original_request.len() > 100 {
-            Some(format!("{}...", &original_request[..100]))
+            let mut end = 100;
+            while end > 0 && !original_request.is_char_boundary(end) {
+                end -= 1;
+            }
+            Some(format!("{}...", &original_request[..end]))
         } else if original_request.is_empty() {
             Some("Imported Aider session".into())
         } else {

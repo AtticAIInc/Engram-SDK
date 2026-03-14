@@ -100,9 +100,12 @@ pub fn run(args: &ConfigArgs) -> Result<()> {
 
 /// Mask an API key for display: show first 4 and last 4 chars.
 fn mask_key(key: &str) -> String {
-    if key.len() <= 10 {
+    let chars: Vec<char> = key.chars().collect();
+    if chars.len() <= 10 {
         "****".to_string()
     } else {
-        format!("{}...{}", &key[..4], &key[key.len() - 4..])
+        let prefix: String = chars[..4].iter().collect();
+        let suffix: String = chars[chars.len() - 4..].iter().collect();
+        format!("{prefix}...{suffix}")
     }
 }

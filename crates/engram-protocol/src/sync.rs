@@ -40,12 +40,13 @@ pub fn push_engrams(
         opts.refspecs.clone()
     };
 
+    let refs_before = engram_core::storage::refs::list_engram_refs(repo)?;
+
     if opts.dry_run {
-        // Count refs that would be pushed
-        let refs = engram_core::storage::refs::list_engram_refs(repo)?;
+        // In dry-run, report how many refs exist that would be pushed
         return Ok(PushResult {
             remote: remote_name.into(),
-            refs_pushed: refs.len(),
+            refs_pushed: refs_before.len(),
         });
     }
 
@@ -59,12 +60,20 @@ pub fn push_engrams(
         .push(&refspec_strs, None)
         .map_err(|e| ProtocolError::Sync(format!("Push failed: {e}")))?;
 
-    // Count refs (approximate)
-    let refs = engram_core::storage::refs::list_engram_refs(repo)?;
+    // Count how many refs were actually pushed (delta)
+    let refs_after = engram_core::storage::refs::list_engram_refs(repo)?;
+    let new_refs = refs_after.len().saturating_sub(refs_before.len());
+    // If no new refs were created locally during push, report the count of refs
+    // that existed before (all were pushed/synced)
+    let pushed = if new_refs == 0 {
+        refs_before.len()
+    } else {
+        new_refs
+    };
 
     Ok(PushResult {
         remote: remote_name.into(),
-        refs_pushed: refs.len(),
+        refs_pushed: pushed,
     })
 }
 

@@ -128,17 +128,42 @@ pub fn run(repo_path: &Path) -> io::Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     io::stdout().execute(EnterAlternateScreen)?;
+
+    // Install panic hook to restore terminal state on panic
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = disable_raw_mode();
+        let _ = io::stdout().execute(LeaveAlternateScreen);
+        original_hook(info);
+    }));
+
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
     // Main loop
+    let result = run_loop(&mut terminal, &mut app);
+
+    // Restore terminal (also handles normal exit)
+    disable_raw_mode()?;
+    io::stdout().execute(LeaveAlternateScreen)?;
+
+    // Restore the original panic hook
+    let _ = std::panic::take_hook();
+
+    result
+}
+
+fn run_loop(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    app: &mut App,
+) -> io::Result<()> {
     while !app.quit {
         // Eagerly load detail for selected item
         if let Some(idx) = app.selected_index() {
             app.load_detail(idx);
         }
 
-        terminal.draw(|f| ui(f, &mut app))?;
+        terminal.draw(|f| ui(f, app))?;
 
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
@@ -184,11 +209,6 @@ pub fn run(repo_path: &Path) -> io::Result<()> {
             }
         }
     }
-
-    // Restore terminal
-    disable_raw_mode()?;
-    io::stdout().execute(LeaveAlternateScreen)?;
-
     Ok(())
 }
 

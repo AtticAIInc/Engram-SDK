@@ -19,9 +19,13 @@ pub fn format_note(data: &EngramData) -> String {
 
     // Intent
     let request = &data.intent.original_request;
-    // Truncate long requests for the note
+    // Truncate long requests for the note (char-boundary safe)
     let display_request = if request.len() > 120 {
-        format!("{}...", &request[..117])
+        let mut end = 117;
+        while end > 0 && !request.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}...", &request[..end])
     } else {
         request.clone()
     };
@@ -30,7 +34,11 @@ pub fn format_note(data: &EngramData) -> String {
     // Summary
     if let Some(summary) = data.intent.summary.as_deref().or(m.summary.as_deref()) {
         let display_summary = if summary.len() > 200 {
-            format!("{}...", &summary[..197])
+            let mut end = 197;
+            while end > 0 && !summary.is_char_boundary(end) {
+                end -= 1;
+            }
+            format!("{}...", &summary[..end])
         } else {
             summary.to_string()
         };
