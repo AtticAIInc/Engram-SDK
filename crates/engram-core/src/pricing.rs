@@ -9,10 +9,38 @@ pub struct ModelPricing {
     pub cache_write_per_million: f64,
 }
 
-/// Known model pricing entries. Ordered most-specific first so `contains()` matching
-/// picks the right variant (e.g. "gpt-4o" before "gpt-4").
+/// Known model pricing entries (March 2026). Ordered most-specific first so
+/// `contains()` matching picks the right variant (e.g. "gpt-4o-mini" before "gpt-4o").
 const PRICING_TABLE: &[(&str, ModelPricing)] = &[
-    // Anthropic Claude 4 / 4.5 / 4.6
+    // Anthropic Claude 4.6 / 4.5 — $5/$25
+    (
+        "claude-opus-4-6",
+        ModelPricing {
+            input_per_million: 5.0,
+            output_per_million: 25.0,
+            cache_read_per_million: 0.50,
+            cache_write_per_million: 6.25,
+        },
+    ),
+    (
+        "claude-opus-4-5",
+        ModelPricing {
+            input_per_million: 5.0,
+            output_per_million: 25.0,
+            cache_read_per_million: 0.50,
+            cache_write_per_million: 6.25,
+        },
+    ),
+    // Anthropic Claude 4.1 / 4 — $15/$75
+    (
+        "claude-opus-4-1",
+        ModelPricing {
+            input_per_million: 15.0,
+            output_per_million: 75.0,
+            cache_read_per_million: 1.50,
+            cache_write_per_million: 18.75,
+        },
+    ),
     (
         "claude-opus-4",
         ModelPricing {
@@ -22,6 +50,7 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             cache_write_per_million: 18.75,
         },
     ),
+    // Sonnet — all 4.x variants share $3/$15
     (
         "claude-sonnet-4",
         ModelPricing {
@@ -31,13 +60,14 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             cache_write_per_million: 3.75,
         },
     ),
+    // Haiku 4.5 — $1/$5
     (
         "claude-haiku-4",
         ModelPricing {
-            input_per_million: 0.80,
-            output_per_million: 4.0,
-            cache_read_per_million: 0.08,
-            cache_write_per_million: 1.0,
+            input_per_million: 1.0,
+            output_per_million: 5.0,
+            cache_read_per_million: 0.10,
+            cache_write_per_million: 1.25,
         },
     ),
     // Anthropic Claude 3.5
@@ -59,7 +89,7 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             cache_write_per_million: 1.0,
         },
     ),
-    // Anthropic Claude 3
+    // Anthropic Claude 3 (legacy)
     (
         "claude-3-opus",
         ModelPricing {
@@ -87,23 +117,61 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             cache_write_per_million: 0.30,
         },
     ),
-    // OpenAI — gpt-4o before gpt-4
+    // OpenAI GPT-4.1 — specific variants before generic
+    (
+        "gpt-4.1-nano",
+        ModelPricing {
+            input_per_million: 0.10,
+            output_per_million: 0.40,
+            cache_read_per_million: 0.01,
+            cache_write_per_million: 0.10,
+        },
+    ),
+    (
+        "gpt-4.1-mini",
+        ModelPricing {
+            input_per_million: 0.40,
+            output_per_million: 1.60,
+            cache_read_per_million: 0.04,
+            cache_write_per_million: 0.40,
+        },
+    ),
+    (
+        "gpt-4.1",
+        ModelPricing {
+            input_per_million: 2.0,
+            output_per_million: 8.0,
+            cache_read_per_million: 0.20,
+            cache_write_per_million: 2.0,
+        },
+    ),
+    // OpenAI GPT-4o — mini before base
+    (
+        "gpt-4o-mini",
+        ModelPricing {
+            input_per_million: 0.15,
+            output_per_million: 0.60,
+            cache_read_per_million: 0.075,
+            cache_write_per_million: 0.15,
+        },
+    ),
     (
         "gpt-4o",
         ModelPricing {
             input_per_million: 2.50,
             output_per_million: 10.0,
             cache_read_per_million: 1.25,
-            cache_write_per_million: 3.125,
+            cache_write_per_million: 2.50,
         },
     ),
+    // OpenAI GPT-4 (legacy)
     (
         "gpt-4-turbo",
         ModelPricing {
             input_per_million: 10.0,
             output_per_million: 30.0,
             cache_read_per_million: 5.0,
-            cache_write_per_million: 12.50,
+            cache_write_per_million: 10.0,
         },
     ),
     (
@@ -112,7 +180,7 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             input_per_million: 30.0,
             output_per_million: 60.0,
             cache_read_per_million: 15.0,
-            cache_write_per_million: 37.50,
+            cache_write_per_million: 30.0,
         },
     ),
     (
@@ -121,17 +189,17 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             input_per_million: 0.50,
             output_per_million: 1.50,
             cache_read_per_million: 0.25,
-            cache_write_per_million: 0.625,
+            cache_write_per_million: 0.50,
         },
     ),
-    // OpenAI o1/o3/o4 reasoning models — specific variants before generic
+    // OpenAI o-series reasoning — specific variants before generic
     (
         "o4-mini",
         ModelPricing {
             input_per_million: 1.10,
             output_per_million: 4.40,
             cache_read_per_million: 0.275,
-            cache_write_per_million: 1.375,
+            cache_write_per_million: 1.10,
         },
     ),
     (
@@ -139,8 +207,8 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
         ModelPricing {
             input_per_million: 1.10,
             output_per_million: 4.40,
-            cache_read_per_million: 0.55,
-            cache_write_per_million: 1.375,
+            cache_read_per_million: 0.275,
+            cache_write_per_million: 1.10,
         },
     ),
     (
@@ -149,7 +217,7 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             input_per_million: 2.0,
             output_per_million: 8.0,
             cache_read_per_million: 1.0,
-            cache_write_per_million: 2.50,
+            cache_write_per_million: 2.0,
         },
     ),
     (
@@ -158,7 +226,7 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             input_per_million: 3.0,
             output_per_million: 12.0,
             cache_read_per_million: 1.50,
-            cache_write_per_million: 3.75,
+            cache_write_per_million: 3.0,
         },
     ),
     (
@@ -167,7 +235,7 @@ const PRICING_TABLE: &[(&str, ModelPricing)] = &[
             input_per_million: 15.0,
             output_per_million: 60.0,
             cache_read_per_million: 7.50,
-            cache_write_per_million: 18.75,
+            cache_write_per_million: 15.0,
         },
     ),
 ];
@@ -209,10 +277,43 @@ mod tests {
     use crate::model::TokenUsage;
 
     #[test]
-    fn test_lookup_opus() {
+    fn test_lookup_opus_46() {
         let p = lookup_model("claude-opus-4-6").unwrap();
+        assert!((p.input_per_million - 5.0).abs() < 1e-10);
+        assert!((p.output_per_million - 25.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_lookup_opus_41() {
+        let p = lookup_model("claude-opus-4-1-20250414").unwrap();
         assert!((p.input_per_million - 15.0).abs() < 1e-10);
         assert!((p.output_per_million - 75.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_lookup_haiku_45() {
+        let p = lookup_model("claude-haiku-4-5-20251001").unwrap();
+        assert!((p.input_per_million - 1.0).abs() < 1e-10);
+        assert!((p.output_per_million - 5.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_lookup_gpt41() {
+        let p = lookup_model("gpt-4.1").unwrap();
+        assert!((p.input_per_million - 2.0).abs() < 1e-10);
+        assert!((p.output_per_million - 8.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_lookup_gpt41_mini() {
+        let p = lookup_model("gpt-4.1-mini-2025-04-14").unwrap();
+        assert!((p.input_per_million - 0.40).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_lookup_gpt4o_mini_before_gpt4o() {
+        let p = lookup_model("gpt-4o-mini-2024-07-18").unwrap();
+        assert!((p.input_per_million - 0.15).abs() < 1e-10);
     }
 
     #[test]
