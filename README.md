@@ -326,7 +326,7 @@ Repos with a `.mcp.json` file are auto-configured -- Claude Code discovers and s
 }
 ```
 
-For global access across all projects, add the same config to `~/.claude/mcp.json`.
+For global access across all projects, register at user scope: `claude mcp add --transport stdio --scope user engram -- engram mcp`
 
 ### Claude Desktop
 

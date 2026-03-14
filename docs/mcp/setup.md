@@ -24,21 +24,13 @@ Create `.mcp.json` at the repo root:
 
 ### Global (all projects)
 
-Add the same config to `~/.claude/mcp.json` to enable engram MCP in every project:
+Use the Claude Code CLI to register engram at user scope:
 
-```json
-{
-  "mcpServers": {
-    "engram": {
-      "command": "engram",
-      "args": ["mcp"],
-      "env": {
-        "PATH": "${HOME}/.cargo/bin:${PATH}"
-      }
-    }
-  }
-}
+```bash
+claude mcp add --transport stdio --scope user engram -- engram mcp
 ```
+
+This adds engram to `~/.claude.json` so it's available in every project without needing a `.mcp.json` file.
 
 ## Claude Desktop
 
