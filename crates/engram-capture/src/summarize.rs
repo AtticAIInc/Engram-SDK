@@ -248,13 +248,24 @@ fn call_claude(api_key: &str, model: &str, user_message: &str) -> Result<String,
         .json()
         .map_err(|e| CaptureError::LlmError(format!("Failed to parse API response: {e}")))?;
 
-    // Extract text from the first content block
+    // Extract text from the first text content block (skip thinking blocks)
     resp_json["content"]
         .as_array()
-        .and_then(|arr| arr.first())
+        .and_then(|arr| {
+            arr.iter()
+                .find(|block| block["type"].as_str() == Some("text"))
+        })
         .and_then(|block| block["text"].as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| CaptureError::LlmError("No text in API response".to_string()))
+        .ok_or_else(|| {
+            let content_preview = resp_json["content"].to_string();
+            let preview = if content_preview.len() > 200 {
+                format!("{}...", &content_preview[..200])
+            } else {
+                content_preview
+            };
+            CaptureError::LlmError(format!("No text block in API response: {preview}"))
+        })
 }
 
 /// Response from LLM summarization.
@@ -275,8 +286,21 @@ fn parse_response(text: &str) -> Result<SummarizeResponse, CaptureError> {
         .unwrap_or(text.trim());
     let cleaned = cleaned.strip_suffix("```").unwrap_or(cleaned).trim();
 
-    let json: serde_json::Value = serde_json::from_str(cleaned)
-        .map_err(|e| CaptureError::LlmError(format!("Invalid JSON from LLM: {e}")))?;
+    if cleaned.is_empty() {
+        return Err(CaptureError::LlmError(
+            "LLM returned empty response".to_string(),
+        ));
+    }
+
+    let json: serde_json::Value = serde_json::from_str(cleaned).map_err(|e| {
+        let preview = if cleaned.len() > 200 {
+            format!("{}...", &cleaned[..200])
+        } else {
+            cleaned.to_string()
+        };
+        tracing::debug!("LLM returned non-JSON text: {preview:?}");
+        CaptureError::LlmError(format!("Invalid JSON from LLM: {e}"))
+    })?;
 
     let summary = json["summary"].as_str().map(|s| s.to_string());
     let interpreted_goal = json["interpreted_goal"].as_str().map(|s| s.to_string());
