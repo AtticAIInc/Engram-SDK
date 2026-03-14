@@ -93,7 +93,12 @@ fn try_extract_dead_end(lower: &str, original: &str) -> Option<DeadEnd> {
     }
 
     // Pattern: "X didn't work because Y" / "X doesn't work because Y"
-    for needle in &[" didn't work", " doesn't work", " won't work", " isn't working"] {
+    for needle in &[
+        " didn't work",
+        " doesn't work",
+        " won't work",
+        " isn't working",
+    ] {
         if let Some(pos) = lower.find(needle) {
             let approach = &original[..pos];
             let after_pos = pos + needle.len();
@@ -154,7 +159,13 @@ fn try_extract_dead_end(lower: &str, original: &str) -> Option<DeadEnd> {
     }
 
     // Pattern: "X failed" / "X broke" / "X caused issues"
-    for needle in &[" failed", " broke", " caused issues", " caused errors", " caused problems"] {
+    for needle in &[
+        " failed",
+        " broke",
+        " caused issues",
+        " caused errors",
+        " caused problems",
+    ] {
         if let Some(pos) = lower.find(needle) {
             let approach = &original[..pos];
             let reason_start = pos + needle.len();
@@ -163,8 +174,7 @@ fn try_extract_dead_end(lower: &str, original: &str) -> Option<DeadEnd> {
                 if rest.is_empty() || rest == "." {
                     needle.trim().to_string()
                 } else {
-                    rest.trim_start_matches([',', ':', ' '])
-                        .to_string()
+                    rest.trim_start_matches([',', ':', ' ']).to_string()
                 }
             } else {
                 needle.trim().to_string()
@@ -179,7 +189,12 @@ fn try_extract_dead_end(lower: &str, original: &str) -> Option<DeadEnd> {
     }
 
     // Pattern: "I considered X but" / "I thought about X but"
-    for prefix in &["i considered ", "i thought about ", "i looked into ", "i explored "] {
+    for prefix in &[
+        "i considered ",
+        "i thought about ",
+        "i looked into ",
+        "i explored ",
+    ] {
         if let Some(rest) = lower.strip_prefix(prefix) {
             if let Some((approach, reason)) = rest
                 .split_once(" but ")
@@ -221,7 +236,12 @@ fn try_extract_dead_end(lower: &str, original: &str) -> Option<DeadEnd> {
     }
 
     // Pattern: "switched from X to Y" / "moved from X to Y" / "switched to Y from X"
-    for prefix in &["switched from ", "moved from ", "changed from ", "migrated from "] {
+    for prefix in &[
+        "switched from ",
+        "moved from ",
+        "changed from ",
+        "migrated from ",
+    ] {
         if let Some(rest) = lower.strip_prefix(prefix) {
             if let Some((approach, _)) = rest.split_once(" to ") {
                 return Some(DeadEnd {
@@ -303,7 +323,13 @@ fn try_extract_decision(lower: &str, original: &str) -> Option<Decision> {
     }
 
     // Pattern: "I'll use X because Y" / "using X because Y" / "let's use X because Y"
-    for prefix in &["i'll use ", "using ", "let's use ", "we'll use ", "i will use "] {
+    for prefix in &[
+        "i'll use ",
+        "using ",
+        "let's use ",
+        "we'll use ",
+        "i will use ",
+    ] {
         if let Some(rest) = lower.strip_prefix(prefix) {
             if let Some((desc, rationale)) = rest
                 .split_once(" because ")

@@ -283,9 +283,7 @@ fn parse_claude_code_session(content: &str) -> Result<EngramData, CaptureError> 
 
                             // Track Bash commands as shell operations
                             if tool_name == "Bash" {
-                                if let Some(cmd) =
-                                    input.get("command").and_then(|c| c.as_str())
-                                {
+                                if let Some(cmd) = input.get("command").and_then(|c| c.as_str()) {
                                     shell_commands.push(ShellCommand {
                                         timestamp: ts.unwrap_or_else(Utc::now),
                                         command: cmd.to_string(),

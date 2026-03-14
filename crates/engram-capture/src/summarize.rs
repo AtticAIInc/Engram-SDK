@@ -370,9 +370,9 @@ fn apply_response(data: &mut EngramData, response: &SummarizeResponse) {
     if !response.decisions.is_empty() {
         let mut merged = response.decisions.clone();
         for existing in &data.intent.decisions {
-            let dominated = merged.iter().any(|d| {
-                d.description.to_lowercase() == existing.description.to_lowercase()
-            });
+            let dominated = merged
+                .iter()
+                .any(|d| d.description.to_lowercase() == existing.description.to_lowercase());
             if !dominated {
                 merged.push(existing.clone());
             }

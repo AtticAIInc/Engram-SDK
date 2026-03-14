@@ -375,8 +375,15 @@ fn maybe_auto_push(storage: &GitStorage) {
         None => return,
     };
 
+    // Force-push engram refs: they may be updated in-place (e.g. when commit SHAs
+    // are appended), so the push is not necessarily a fast-forward.
     match std::process::Command::new("git")
-        .args(["push", "origin", "refs/engrams/*:refs/engrams/*"])
+        .args([
+            "push",
+            "--force",
+            "origin",
+            "+refs/engrams/*:refs/engrams/*",
+        ])
         .env("ENGRAM_PUSHING", "1")
         .current_dir(&workdir)
         .stdout(std::process::Stdio::piped())
@@ -391,6 +398,7 @@ fn maybe_auto_push(storage: &GitStorage) {
             }
         }
         Ok(output) => {
+            // Silently log failures — don't pollute the user's git push output
             let stderr = String::from_utf8_lossy(&output.stderr);
             tracing::debug!("Auto-push: git push failed: {stderr}");
         }

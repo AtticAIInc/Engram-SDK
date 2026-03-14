@@ -45,10 +45,9 @@ pub fn build_router(repo_path: &Path) -> Router {
         .layer(
             CorsLayer::new()
                 .allow_origin(tower_http::cors::AllowOrigin::predicate(|origin, _| {
-                    origin
-                        .to_str()
-                        .ok()
-                        .is_some_and(|o| o.starts_with("http://localhost") || o.starts_with("http://127.0.0.1"))
+                    origin.to_str().ok().is_some_and(|o| {
+                        o.starts_with("http://localhost") || o.starts_with("http://127.0.0.1")
+                    })
                 }))
                 .allow_methods(tower_http::cors::Any)
                 .allow_headers(tower_http::cors::Any),
