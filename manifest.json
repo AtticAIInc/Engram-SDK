@@ -1,0 +1,21 @@
+{
+  "id": "f87a66a757884be582abb736189be5b7",
+  "version": 1,
+  "created_at": "2026-03-11T19:00:34.900Z",
+  "finished_at": "2026-03-14T02:48:03.913Z",
+  "agent": {
+    "name": "claude-code",
+    "model": "claude-opus-4-6"
+  },
+  "git_commits": [],
+  "token_usage": {
+    "input_tokens": 261,
+    "output_tokens": 3601,
+    "cache_read_tokens": 3684313,
+    "cache_write_tokens": 291552,
+    "total_tokens": 3979727
+  },
+  "summary": "Diagnosed and fixed the Engram MCP server not appearing in Claude Code by identifying that the global MCP config was in the wrong file location (~/.claude/mcp.json instead of ~/.claude.json), registered it correctly using the CLI, and updated the GitBook documentation and README to reflect the correct setup procedure.",
+  "capture_mode": "import",
+  "source_hash": "235dde92cd487e771586bac2073be85befa08222428885797da2539f9cafced4"
+}
