@@ -1,0 +1,44 @@
+{
+  "name": "engram",
+  "version": "0.3.0",
+  "description": "Capture agent reasoning as Git-native versioned data",
+  "license": "Apache-2.0 OR MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AtticAIInc/Engram-SDK.git",
+    "directory": "npm"
+  },
+  "homepage": "https://github.com/AtticAIInc/Engram-SDK",
+  "bin": {
+    "engram": "./run.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "install.js",
+    "run.js",
+    "bin/"
+  ],
+  "keywords": [
+    "engram",
+    "ai",
+    "agent",
+    "reasoning",
+    "git",
+    "cli",
+    "claude",
+    "capture"
+  ]
+}

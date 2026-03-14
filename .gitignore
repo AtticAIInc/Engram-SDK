@@ -12,6 +12,9 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
+# npm CLI binary (downloaded at install time)
+npm/bin/engram
+
 # Editor
 *.swp
 *.swo

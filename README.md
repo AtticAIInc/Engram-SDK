@@ -11,12 +11,14 @@ For full documentation and guides, visit: https://the-attic-ai.gitbook.io/untitl
 ## Quick Start
 
 ```bash
-# Install
-git clone https://github.com/AtticAIInc/Engram-SDK.git
-cd Engram-SDK && cargo install --path crates/engram-cli
+# Install via npm (recommended)
+npm install -g engram
 
-# Upgrade (pull latest and reinstall)
-cd Engram-SDK && git pull && cargo install --path crates/engram-cli
+# Or via curl
+curl -fsSL https://raw.githubusercontent.com/AtticAIInc/Engram-SDK/main/install.sh | sh
+
+# Or from source (requires Rust toolchain)
+cargo install --git https://github.com/AtticAIInc/Engram-SDK.git engram-cli
 
 # Initialize in your repo (all automation enabled by default)
 engram init
