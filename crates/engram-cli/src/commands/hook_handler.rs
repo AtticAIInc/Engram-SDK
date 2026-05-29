@@ -6,6 +6,7 @@ use clap::Args;
 use engram_capture::import::claude_code::ClaudeCodeImporter;
 use engram_capture::summarize::summarize_intent;
 use engram_core::config::EngramConfig;
+use engram_core::eventlog;
 use engram_core::hooks;
 use engram_core::hooks::ActiveSession;
 use engram_core::model::AgentInfo;
@@ -65,9 +66,12 @@ pub fn run(args: &HookHandlerArgs) -> Result<()> {
 /// and imports the session as an engram. All errors are logged at debug level and
 /// silently ignored so we never interfere with the user's workflow.
 fn handle_session_end(storage: &GitStorage) {
+    let git_dir = storage.repo().path().to_path_buf();
+
     let mut input = String::new();
     if std::io::stdin().read_to_string(&mut input).is_err() {
         tracing::debug!("session-end: failed to read stdin");
+        eventlog::warn(&git_dir, "session-end: failed to read stdin");
         return;
     }
 
@@ -75,6 +79,10 @@ fn handle_session_end(storage: &GitStorage) {
         Ok(v) => v,
         Err(e) => {
             tracing::debug!("session-end: failed to parse JSON: {e}");
+            eventlog::warn(
+                &git_dir,
+                format!("session-end: failed to parse hook JSON: {e}"),
+            );
             return;
         }
     };
@@ -83,6 +91,7 @@ fn handle_session_end(storage: &GitStorage) {
         Some(p) => std::path::PathBuf::from(p),
         None => {
             tracing::debug!("session-end: no transcript_path in input");
+            eventlog::warn(&git_dir, "session-end: hook input had no transcript_path");
             return;
         }
     };
@@ -92,6 +101,13 @@ fn handle_session_end(storage: &GitStorage) {
             "session-end: transcript file does not exist: {}",
             transcript_path.display()
         );
+        eventlog::warn(
+            &git_dir,
+            format!(
+                "session-end: transcript file does not exist: {}",
+                transcript_path.display()
+            ),
+        );
         return;
     }
 
@@ -99,6 +115,10 @@ fn handle_session_end(storage: &GitStorage) {
         Ok(d) => d,
         Err(e) => {
             tracing::debug!("session-end: failed to import session: {e}");
+            eventlog::error(
+                &git_dir,
+                format!("session-end: failed to import session: {e}"),
+            );
             return;
         }
     };
@@ -106,6 +126,10 @@ fn handle_session_end(storage: &GitStorage) {
     // Best-effort LLM summarization
     if let Err(e) = summarize_intent(&mut data) {
         tracing::debug!("session-end: LLM summarization failed: {e}");
+        eventlog::warn(
+            &git_dir,
+            format!("session-end: LLM summarization failed (kept heuristic summary): {e}"),
+        );
     }
 
     // Check for duplicates via source_hash
@@ -127,15 +151,35 @@ fn handle_session_end(storage: &GitStorage) {
         Ok(_) => {
             // Best-effort index update
             if let Ok(engine) = SearchEngine::open(storage) {
-                let _ = engine.index_engram(&data);
+                if let Err(e) = engine.index_engram(&data) {
+                    eventlog::warn(
+                        &git_dir,
+                        format!(
+                            "session-end: search indexing failed for {}: {e}",
+                            &id.as_str()[..8]
+                        ),
+                    );
+                }
             }
             tracing::debug!("session-end: imported engram {}", &id.as_str()[..8]);
+            eventlog::info(
+                &git_dir,
+                format!(
+                    "session-end: captured engram {} ({} tokens)",
+                    &id.as_str()[..8],
+                    data.manifest.token_usage.total_tokens
+                ),
+            );
 
             // Best-effort: annotate commits that reference this engram
             auto_annotate_commits(storage, &data);
         }
         Err(e) => {
             tracing::debug!("session-end: failed to store engram: {e}");
+            eventlog::error(
+                &git_dir,
+                format!("session-end: failed to store engram: {e}"),
+            );
         }
     }
 }
@@ -232,6 +276,10 @@ fn maybe_auto_capture(storage: &GitStorage, git_dir: &std::path::Path) {
         Ok(files) => files,
         Err(e) => {
             tracing::debug!("Auto-capture: failed to discover sessions: {e}");
+            eventlog::warn(
+                git_dir,
+                format!("auto-capture: failed to discover sessions: {e}"),
+            );
             return;
         }
     };
@@ -261,6 +309,10 @@ fn maybe_auto_capture(storage: &GitStorage, git_dir: &std::path::Path) {
         Ok(d) => d,
         Err(e) => {
             tracing::debug!("Auto-capture: failed to import session: {e}");
+            eventlog::error(
+                git_dir,
+                format!("auto-capture: failed to import session: {e}"),
+            );
             return;
         }
     };
@@ -268,6 +320,10 @@ fn maybe_auto_capture(storage: &GitStorage, git_dir: &std::path::Path) {
     // Best-effort LLM summarization
     if let Err(e) = summarize_intent(&mut data) {
         tracing::debug!("Auto-capture: LLM summarization failed: {e}");
+        eventlog::warn(
+            git_dir,
+            format!("auto-capture: LLM summarization failed (kept heuristic summary): {e}"),
+        );
     }
 
     // Check for duplicates — if already imported, reuse the existing engram ID
@@ -286,13 +342,33 @@ fn maybe_auto_capture(storage: &GitStorage, git_dir: &std::path::Path) {
             Ok(_) => {
                 // Best-effort index update
                 if let Ok(engine) = SearchEngine::open(storage) {
-                    let _ = engine.index_engram(&data);
+                    if let Err(e) = engine.index_engram(&data) {
+                        eventlog::warn(
+                            git_dir,
+                            format!(
+                                "auto-capture: search indexing failed for {}: {e}",
+                                &id.as_str()[..8]
+                            ),
+                        );
+                    }
                 }
                 tracing::debug!("Auto-capture: imported engram {}", &id.as_str()[..8]);
+                eventlog::info(
+                    git_dir,
+                    format!(
+                        "auto-capture: captured engram {} ({} tokens)",
+                        &id.as_str()[..8],
+                        data.manifest.token_usage.total_tokens
+                    ),
+                );
                 id
             }
             Err(e) => {
                 tracing::debug!("Auto-capture: failed to store engram: {e}");
+                eventlog::error(
+                    git_dir,
+                    format!("auto-capture: failed to store engram: {e}"),
+                );
                 return;
             }
         }
@@ -313,6 +389,10 @@ fn maybe_auto_capture(storage: &GitStorage, git_dir: &std::path::Path) {
 
     if let Err(e) = session.save(git_dir) {
         tracing::debug!("Auto-capture: failed to save session: {e}");
+        eventlog::warn(
+            git_dir,
+            format!("auto-capture: failed to save active session: {e}"),
+        );
     }
 }
 
@@ -374,6 +454,7 @@ fn maybe_auto_push(storage: &GitStorage) {
         Some(w) => w.to_path_buf(),
         None => return,
     };
+    let git_dir = storage.repo().path().to_path_buf();
 
     // Force-push engram refs: they may be updated in-place (e.g. when commit SHAs
     // are appended), so the push is not necessarily a fast-forward.
@@ -395,15 +476,24 @@ fn maybe_auto_push(storage: &GitStorage) {
             let pushed = stderr.lines().filter(|l| l.contains("->")).count();
             if pushed > 0 {
                 eprintln!("engram: pushed {pushed} engram ref(s) to origin");
+                eventlog::info(
+                    &git_dir,
+                    format!("auto-push: pushed {pushed} engram ref(s) to origin"),
+                );
             }
         }
         Ok(output) => {
-            // Silently log failures — don't pollute the user's git push output
+            // Don't pollute the user's git push output, but leave a breadcrumb.
             let stderr = String::from_utf8_lossy(&output.stderr);
             tracing::debug!("Auto-push: git push failed: {stderr}");
+            eventlog::warn(
+                &git_dir,
+                format!("auto-push: git push failed: {}", stderr.trim()),
+            );
         }
         Err(e) => {
             tracing::debug!("Auto-push: failed to run git: {e}");
+            eventlog::warn(&git_dir, format!("auto-push: failed to run git: {e}"));
         }
     }
 }

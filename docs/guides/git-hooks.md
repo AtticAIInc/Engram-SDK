@@ -51,7 +51,31 @@ Installed in `.claude/settings.json`. Fires when Claude Code exits a session:
 
 - **Existing hooks are preserved** -- engram chains after them via `.pre-engram` backups
 - **Hooks fail silently** -- a hook error never breaks your git workflow
-- **File locking** -- `ActiveSession` uses `fs2` advisory locks to prevent concurrent commit conflicts
+- **File locking** -- `ActiveSession` and the `engram-head` pointer use `fs2` advisory locks to prevent concurrent commit conflicts
+
+## Troubleshooting
+
+Because hooks fail silently, a broken or misconfigured capture looks the same as
+a repo with nothing to capture. To make those outcomes visible, background
+operations append timestamped events to a best-effort, size-bounded log at
+`.git/engram.log` (inside `.git/`, so it is never committed).
+
+Run [`engram doctor`](../cli/doctor.md) to check which hooks are installed, your
+configuration, storage and index state, and the tail of that log -- including
+recent errors, warnings, and the time of the last successful capture:
+
+```bash
+engram doctor
+engram doctor --events 50    # show more log history
+```
+
+If `doctor` reports that no engrams are being captured, common causes are:
+
+- The Claude Code `SessionEnd` hook is missing from `.claude/settings.json`
+  (re-run `engram init`).
+- The `engram` binary is not on `PATH` in the environment git runs hooks from.
+- `ANTHROPIC_API_KEY` is unset, so sessions are captured but summaries fall back
+  to heuristics (logged as a warning, not an error).
 
 ## Git Notes
 

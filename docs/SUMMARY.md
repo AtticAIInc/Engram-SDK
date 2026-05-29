@@ -36,6 +36,7 @@
 * [audit](cli/audit.md)
 * [browse](cli/browse.md)
 * [dashboard](cli/dashboard.md)
+* [doctor](cli/doctor.md)
 * [mcp](cli/mcp.md)
 
 ## SDK Guides

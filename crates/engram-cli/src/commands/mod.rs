@@ -6,6 +6,7 @@ pub mod config;
 pub mod dashboard;
 pub mod dead_ends;
 pub mod diff;
+pub mod doctor;
 pub mod fetch;
 pub mod gc;
 pub mod graph;
@@ -83,6 +84,8 @@ pub enum Commands {
     Browse(browse::BrowseArgs),
     /// Start the web dashboard for visualizing engram data
     Dashboard(dashboard::DashboardArgs),
+    /// Diagnose engram setup and surface recent background failures
+    Doctor(doctor::DoctorArgs),
     /// Print version information
     Version,
     /// Internal: handle git hook callbacks

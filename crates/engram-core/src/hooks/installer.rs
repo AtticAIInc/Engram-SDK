@@ -37,6 +37,27 @@ pub fn install_hooks(git_dir: &Path) -> Result<(), CoreError> {
     Ok(())
 }
 
+/// Return the engram git hooks that are currently installed in `git_dir`.
+///
+/// A hook counts as installed if its script contains the engram hook marker.
+pub fn installed_hooks(git_dir: &Path) -> Vec<&'static str> {
+    let hooks_dir = git_dir.join("hooks");
+    HOOKS
+        .iter()
+        .copied()
+        .filter(|hook_name| {
+            fs::read_to_string(hooks_dir.join(hook_name))
+                .map(|c| c.contains("engram hook-handler"))
+                .unwrap_or(false)
+        })
+        .collect()
+}
+
+/// The full set of git hooks engram manages.
+pub fn managed_hooks() -> &'static [&'static str] {
+    HOOKS
+}
+
 /// Uninstall engram hooks, restoring originals if they were backed up.
 pub fn uninstall_hooks(git_dir: &Path) -> Result<(), CoreError> {
     let hooks_dir = git_dir.join("hooks");

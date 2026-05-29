@@ -107,6 +107,7 @@ fn main() -> Result<()> {
         commands::Commands::Audit(args) => commands::audit::run(args, cli.format),
         commands::Commands::Browse(args) => commands::browse::run(args),
         commands::Commands::Dashboard(args) => commands::dashboard::run(args),
+        commands::Commands::Doctor(args) => commands::doctor::run(args, cli.format),
         commands::Commands::Version => commands::version::run(),
         commands::Commands::HookHandler(args) => commands::hook_handler::run(args),
     };

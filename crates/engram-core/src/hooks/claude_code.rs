@@ -82,6 +82,16 @@ pub fn install_claude_code_hook(project_root: &Path) -> Result<(), CoreError> {
     Ok(())
 }
 
+/// Return whether the engram Claude Code `SessionEnd` hook is installed in
+/// the project's `.claude/settings.json`.
+pub fn claude_code_hook_installed(project_root: &Path) -> bool {
+    let settings_path = project_root.join(".claude").join("settings.json");
+    let Ok(content) = std::fs::read_to_string(&settings_path) else {
+        return false;
+    };
+    content.contains(ENGRAM_HOOK_MARKER)
+}
+
 /// Remove the Claude Code `SessionEnd` hook for engram.
 ///
 /// Preserves all other settings and hooks.

@@ -1,6 +1,6 @@
 # CLI Overview
 
-The `engram` CLI provides 29 commands for capturing, querying, and syncing agent reasoning.
+The `engram` CLI provides 30 commands for capturing, querying, and syncing agent reasoning.
 
 ## Installation
 
@@ -71,6 +71,7 @@ These flags are available on all commands:
 |---------|-------------|
 | [gc](gc.md) | Garbage collect old engrams |
 | [reindex](reindex.md) | Rebuild the search index |
+| [doctor](doctor.md) | Diagnose setup and surface recent background failures |
 
 ### Interactive
 
