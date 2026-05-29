@@ -1,0 +1,23 @@
+{
+  "id": "d0ffb4e962df41248599c25de35c9e0c",
+  "version": 1,
+  "created_at": "2026-05-29T04:09:16.790Z",
+  "finished_at": "2026-05-29T04:46:37.173Z",
+  "agent": {
+    "name": "claude-code",
+    "model": "claude-opus-4-8"
+  },
+  "git_commits": [
+    "11d6c635f748e552b5cec9050c37538828e9e34b"
+  ],
+  "token_usage": {
+    "input_tokens": 56291,
+    "output_tokens": 157208,
+    "cache_read_tokens": 28529118,
+    "cache_write_tokens": 540435,
+    "total_tokens": 29283052
+  },
+  "summary": "do a deep dive of this project.  how would you improve it?",
+  "capture_mode": "import",
+  "source_hash": "bdd834c4b894c4402645ba4c9e27a953b5a1c00378e828a007075229044f95f7"
+}

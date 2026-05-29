@@ -1,0 +1,1134 @@
+{
+  "tool_calls": [
+    {
+      "timestamp": "2026-05-29T04:09:22.011Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "echo \"=== TOP LEVEL ===\" && ls -la && echo \"\" && echo \"=== WORKSPACE CARGO ===\" && cat Cargo.toml 2>/dev/null | head -80",
+        "description": "List top-level and workspace Cargo.toml"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:09:23.918Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "echo \"=== CRATE STRUCTURE ===\" && ls -d crates/*/ 2>/dev/null; ls -d */ 2>/dev/null && echo \"\" && echo \"=== LOC by crate ===\" && (find crates -name '*.rs' 2>/dev/null | xargs wc -l 2>/dev/null | tail -1) ; echo \"\" && echo \"=== README head ===\" && head -60 README.md",
+        "description": "Crate structure and LOC"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:09:32.292Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "for c in engram-core engram-capture engram-query engram-protocol engram-sdk engram-mcp engram-dashboard engram-tui engram-cli; do echo \"=== $c ===\"; find crates/$c/src -name '*.rs' | xargs wc -l 2>/dev/null | sort -rn | head -12; echo \"\"; done",
+        "description": "LOC per file per crate"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:09:51.151Z",
+      "tool_name": "Agent",
+      "input": {
+        "description": "Analyze core + storage + protocol",
+        "prompt": "Explore the Rust crates at /Users/sjonas/engram/crates/engram-core, /Users/sjonas/engram/crates/engram-protocol, and /Users/sjonas/engram/crates/engram-query.\n\nThis project \"engram\" captures AI agent reasoning as Git-native objects (stored in git refs/notes). I need a thorough technical assessment for an improvement review.\n\nFor each of these crates, read the key source files and report:\n1. The data model (Engram, Intent, Transcript) — how it's serialized and stored in git\n2. The storage backend (git_backend.rs, read.rs, refs.rs) — how engrams are written/read, ref locking, any concurrency concerns\n3. The protocol/sync (sync.rs, refspec.rs) — how refs push/pull, edge cases\n4. The query layer (search via tantivy, graph builder, diff, trace, review)\n5. Error handling patterns — use of unwrap/expect/panic, error types\n6. Specific code-quality issues, bugs, race conditions, or design weaknesses you spot (cite file:line)\n7. Test coverage gaps\n\nBe concrete and cite file:line. Report findings, do not modify anything. Return a structured summary.",
+        "subagent_type": "Explore"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:09:56.799Z",
+      "tool_name": "Agent",
+      "input": {
+        "description": "Analyze capture + sdk",
+        "prompt": "Explore the Rust crates at /Users/sjonas/engram/crates/engram-capture and /Users/sjonas/engram/crates/engram-sdk.\n\nThis project \"engram\" captures AI agent reasoning sessions (from Claude Code, Aider) and summarizes them via LLM. I need a thorough technical assessment for an improvement review.\n\nRead the key source files and report:\n1. PTY wrapper & detector (pty/wrapper.rs, pty/detector.rs) — how it wraps agent processes, robustness, platform assumptions\n2. Session extraction (session/extractor.rs, session/builder.rs) — how transcripts are parsed into structured data\n3. Import paths (import/claude_code.rs, import/aider.rs, import/detect.rs) — parsing of JSONL session files, fragility\n4. LLM summarization (summarize.rs) — which API, error handling, cost handling, prompt design, retry logic, what happens on failure\n5. SDK session API (sdk/session.rs)\n6. Error handling: unwrap/expect/panic usage, brittle parsing\n7. Specific bugs, security concerns (e.g. API keys, injection, path handling), and design weaknesses — cite file:line\n8. Test coverage gaps\n\nBe concrete and cite file:line. Report findings only, do not modify. Return a structured summary.",
+        "subagent_type": "Explore"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:10:03.392Z",
+      "tool_name": "Agent",
+      "input": {
+        "description": "Analyze cli + mcp + dashboard + tui",
+        "prompt": "Explore the Rust crates at /Users/sjonas/engram/crates/engram-cli, /Users/sjonas/engram/crates/engram-mcp, /Users/sjonas/engram/crates/engram-dashboard, and /Users/sjonas/engram/crates/engram-tui.\n\nThis project \"engram\" is a Rust CLI that captures AI agent reasoning into Git. I need a thorough technical assessment for an improvement review.\n\nRead key source files and report:\n1. CLI command structure (crates/engram-cli/src/commands/*) — the ~28 commands, how init/hook_handler/annotate work, the pre-commit/pre-push git hook installation\n2. hook_handler.rs — how it integrates with Claude Code hooks; robustness, error swallowing\n3. MCP server (engram-mcp/src/lib.rs) — the 8 tools exposed, input validation, error handling\n4. Dashboard (engram-dashboard/src/lib.rs) — axum server, embedded SPA, any auth/security concerns (it binds a port)\n5. TUI (engram-tui/src/lib.rs) — ratatui usage\n6. Error handling, unwrap/expect/panic, and how failures surface to the user\n7. Security concerns: port binding/auth, path traversal, command injection in hooks, secrets\n8. Specific bugs and design weaknesses — cite file:line\n9. Test coverage gaps\n\nBe concrete and cite file:line. Report findings only, do not modify. Return a structured summary.",
+        "subagent_type": "Explore"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:10:06.519Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "echo \"=== test count & build status check ===\" && grep -rn \"#\\[test\\]\\|#\\[tokio::test\\]\" crates --include='*.rs' | wc -l && echo \"--- unwrap/expect/panic counts (non-test) ---\" && grep -rn \"\\.unwrap()\\|\\.expect(\\|panic!(\" crates --include='*.rs' | grep -v \"test\" | wc -l && echo \"--- TODO/FIXME/HACK ---\" && grep -rn \"TODO\\|FIXME\\|HACK\\|XXX\" crates --include='*.rs' | wc -l && echo \"\" && echo \"=== CI workflows ===\" && ls -la .github/workflows/ 2>/dev/null && echo \"\" && echo \"=== .mcp.json ===\" && cat .mcp.json",
+        "description": "Test count, unwrap count, CI presence"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:12:14.380Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== diff.rs slicing claim ===\"; grep -n '\\[\\.\\.8\\]\\|\\[\\.\\.8\\.min\\|as_str()\\[' crates/engram-cli/src/commands/diff.rs\necho \"\"; echo \"=== ALL bare [..8] without .min across cli ===\"; grep -rn '\\[\\.\\.8\\]' crates --include='*.rs'\necho \"\"; echo \"=== Signature::now().unwrap() fallback ===\"; grep -rn 'Signature::now(\"engram\"' crates --include='*.rs'\necho \"\"; echo \"=== serde to_string_pretty unwrap in commands ===\"; grep -rn 'to_string_pretty.*unwrap()' crates/engram-cli/src/commands/dead_ends.rs crates/engram-cli/src/commands/blame.rs 2>/dev/null\necho \"\"; echo \"=== unwrap breakdown: non-test files only ===\"; grep -rln '\\.unwrap()' crates --include='*.rs' | while read f; do n=$(grep -c '\\.unwrap()' \"$f\"); echo \"$n $f\"; done | sort -rn | head -15",
+        "description": "Verify panic-risk claims"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:12:15.198Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== CI workflow ===\"; cat .github/workflows/ci.yml\necho \"\"; echo \"=== does CI test/clippy run? release.yml top ===\"; head -25 .github/workflows/release.yml",
+        "description": "Inspect CI config"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:13:44.047Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:13:50.553Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== cli commands ===\"; ls crates/engram-cli/src/commands/\necho \"\"; echo \"=== doctor exists? ===\"; ls crates/engram-cli/src/commands/doctor.rs 2>/dev/null || echo \"NO doctor command\"\necho \"\"; echo \"=== commands/mod.rs ===\"; cat crates/engram-cli/src/commands/mod.rs\necho \"\"; echo \"=== core lib.rs ===\"; cat crates/engram-core/src/lib.rs",
+        "description": "Check for doctor command and module structure"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:13:53.609Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/main.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:14:06.016Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/config"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:14:09.956Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== config dir ===\"; ls crates/engram-core/src/config/\necho \"\"; echo \"=== config/mod.rs ===\"; cat crates/engram-core/src/config/mod.rs 2>/dev/null | head -120\necho \"\"; echo \"=== error.rs ===\"; cat crates/engram-core/src/error.rs",
+        "description": "Read config and error modules"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:14:33.472Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/config/settings.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:15:04.521Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== core Cargo.toml ===\"; cat crates/engram-core/Cargo.toml\necho \"\"; echo \"=== GitStorage public methods (git_backend.rs signatures) ===\"; grep -n 'pub fn' crates/engram-core/src/storage/git_backend.rs\necho \"\"; echo \"=== cli Cargo.toml deps ===\"; cat crates/engram-cli/Cargo.toml",
+        "description": "Check core deps and GitStorage API"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:15:37.303Z",
+      "tool_name": "Write",
+      "input": {
+        "content": "//! Persistent event log for best-effort background operations.\n//!\n//! Git hooks and auto-capture run detached from any terminal, so failures that\n//! are merely traced to stderr (at `debug` level, below the default `warn`\n//! filter) are invisible to users. A repo whose auto-capture is silently broken\n//! looks identical to one that simply has no reasoning to capture.\n//!\n//! This module appends timestamped events to `<git_dir>/engram.log` so those\n//! otherwise-silent outcomes leave a breadcrumb that `engram doctor` can surface.\n//! Every function here is best-effort: it never panics and never propagates\n//! errors, so logging can never break the git operation that triggered it.\n\nuse std::fmt;\nuse std::fs::{self, OpenOptions};\nuse std::io::Write;\nuse std::path::Path;\n\n/// Rotate the log once it exceeds this size, keeping one `.old` generation.\nconst MAX_LOG_BYTES: u64 = 256 * 1024;\n\n/// Log file name, written inside the git directory (`.git/engram.log`).\nconst LOG_FILE: &str = \"engram.log\";\nconst LOG_FILE_OLD: &str = \"engram.log.old\";\n\n/// Severity of a logged event.\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum Level {\n    /// A normal, successful outcome worth recording (e.g. a capture or push).\n    Info,\n    /// A recoverable problem the user may want to know about.\n    Warn,\n    /// A failure that prevented an operation from completing.\n    Error,\n}\n\nimpl Level {\n    fn as_str(self) -> &'static str {\n        match self {\n            Level::Info => \"INFO\",\n            Level::Warn => \"WARN\",\n            Level::Error => \"ERROR\",\n        }\n    }\n\n    fn parse(s: &str) -> Option<Level> {\n        match s {\n            \"INFO\" => Some(Level::Info),\n            \"WARN\" => Some(Level::Warn),\n            \"ERROR\" => Some(Level::Error),\n            _ => None,\n        }\n    }\n}\n\nimpl fmt::Display for Level {\n    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {\n        f.write_str(self.as_str())\n    }\n}\n\n/// A single parsed log entry.\n#[derive(Debug, Clone, PartialEq, Eq)]\npub struct Entry {\n    /// RFC 3339 timestamp string, exactly as written.\n    pub timestamp: String,\n    pub level: Level,\n    pub message: String,\n}\n\n/// Append an event to the repo's event log. Best-effort: all errors are swallowed.\n///\n/// `git_dir` is the path to the `.git` directory (i.e. `storage.repo().path()`).\npub fn log(git_dir: &Path, level: Level, message: impl AsRef<str>) {\n    let path = git_dir.join(LOG_FILE);\n\n    // Rotate when the log grows too large so it can never grow unbounded.\n    if let Ok(meta) = fs::metadata(&path) {\n        if meta.len() > MAX_LOG_BYTES {\n            let _ = fs::rename(&path, git_dir.join(LOG_FILE_OLD));\n        }\n    }\n\n    let line = format!(\n        \"{} [{}] {}\\n\",\n        chrono::Utc::now().to_rfc3339(),\n        level,\n        // Keep each event on a single line so the format stays parseable.\n        message.as_ref().replace('\\n', \" \")\n    );\n\n    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {\n        let _ = f.write_all(line.as_bytes());\n    }\n}\n\n/// Convenience wrapper for [`Level::Info`].\npub fn info(git_dir: &Path, message: impl AsRef<str>) {\n    log(git_dir, Level::Info, message);\n}\n\n/// Convenience wrapper for [`Level::Warn`].\npub fn warn(git_dir: &Path, message: impl AsRef<str>) {\n    log(git_dir, Level::Warn, message);\n}\n\n/// Convenience wrapper for [`Level::Error`].\npub fn error(git_dir: &Path, message: impl AsRef<str>) {\n    log(git_dir, Level::Error, message);\n}\n\n/// Parse a single log line of the form `<timestamp> [<LEVEL>] <message>`.\nfn parse_line(line: &str) -> Option<Entry> {\n    let line = line.trim_end();\n    if line.is_empty() {\n        return None;\n    }\n    let (timestamp, rest) = line.split_once(' ')?;\n    let rest = rest.trim_start();\n    let rest = rest.strip_prefix('[')?;\n    let (level_str, message) = rest.split_once(']')?;\n    let level = Level::parse(level_str)?;\n    Some(Entry {\n        timestamp: timestamp.to_string(),\n        level,\n        message: message.trim_start().to_string(),\n    })\n}\n\n/// Read up to `max_lines` of the most recent events, oldest first.\n///\n/// Returns an empty vector if the log does not exist or cannot be read.\n/// Unparseable lines are skipped.\npub fn read_recent(git_dir: &Path, max_lines: usize) -> Vec<Entry> {\n    let path = git_dir.join(LOG_FILE);\n    let contents = match fs::read_to_string(&path) {\n        Ok(c) => c,\n        Err(_) => return Vec::new(),\n    };\n\n    let mut entries: Vec<Entry> = contents.lines().filter_map(parse_line).collect();\n    if entries.len() > max_lines {\n        entries.drain(0..entries.len() - max_lines);\n    }\n    entries\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n    use tempfile::TempDir;\n\n    #[test]\n    fn test_log_and_read_roundtrip() {\n        let tmp = TempDir::new().unwrap();\n        info(tmp.path(), \"captured engram abc123\");\n        warn(tmp.path(), \"summarization skipped\");\n        error(tmp.path(), \"store failed: disk full\");\n\n        let entries = read_recent(tmp.path(), 10);\n        assert_eq!(entries.len(), 3);\n        assert_eq!(entries[0].level, Level::Info);\n        assert_eq!(entries[0].message, \"captured engram abc123\");\n        assert_eq!(entries[1].level, Level::Warn);\n        assert_eq!(entries[2].level, Level::Error);\n        assert_eq!(entries[2].message, \"store failed: disk full\");\n    }\n\n    #[test]\n    fn test_read_recent_caps_lines() {\n        let tmp = TempDir::new().unwrap();\n        for i in 0..20 {\n            info(tmp.path(), format!(\"event {i}\"));\n        }\n        let entries = read_recent(tmp.path(), 5);\n        assert_eq!(entries.len(), 5);\n        // Oldest-first, so the last 5 of 20 are events 15..=19.\n        assert_eq!(entries[0].message, \"event 15\");\n        assert_eq!(entries[4].message, \"event 19\");\n    }\n\n    #[test]\n    fn test_read_recent_missing_file() {\n        let tmp = TempDir::new().unwrap();\n        assert!(read_recent(tmp.path(), 10).is_empty());\n    }\n\n    #[test]\n    fn test_newlines_collapsed_to_single_line() {\n        let tmp = TempDir::new().unwrap();\n        error(tmp.path(), \"line one\\nline two\\nline three\");\n        let entries = read_recent(tmp.path(), 10);\n        assert_eq!(entries.len(), 1);\n        assert_eq!(entries[0].message, \"line one line two line three\");\n    }\n\n    #[test]\n    fn test_rotation_keeps_log_bounded() {\n        let tmp = TempDir::new().unwrap();\n        // Write enough data to exceed MAX_LOG_BYTES and trigger a rotation.\n        let big = \"x\".repeat(1024);\n        for _ in 0..(MAX_LOG_BYTES / 1024 + 8) {\n            info(tmp.path(), &big);\n        }\n        // After rotation, the live log is small again and an .old file exists.\n        let live = fs::metadata(tmp.path().join(LOG_FILE)).unwrap().len();\n        assert!(live <= MAX_LOG_BYTES, \"live log should be bounded: {live}\");\n        assert!(tmp.path().join(LOG_FILE_OLD).exists());\n    }\n\n    #[test]\n    fn test_parse_line_tolerates_garbage() {\n        assert!(parse_line(\"not a valid line\").is_none());\n        assert!(parse_line(\"\").is_none());\n        assert!(parse_line(\"2024-01-01T00:00:00Z [BOGUS] hi\").is_none());\n        let ok = parse_line(\"2024-01-01T00:00:00Z [INFO] hello world\").unwrap();\n        assert_eq!(ok.level, Level::Info);\n        assert_eq!(ok.message, \"hello world\");\n    }\n}\n",
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/eventlog.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:15:41.072Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/lib.rs",
+        "new_string": "pub mod config;\npub mod error;\npub mod eventlog;\npub mod hooks;",
+        "old_string": "pub mod config;\npub mod error;\npub mod hooks;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:15:43.919Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/lib.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:15:47.042Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/lib.rs",
+        "new_string": "pub mod config;\npub mod error;\npub mod eventlog;\npub mod hooks;",
+        "old_string": "pub mod config;\npub mod error;\npub mod hooks;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:15:52.420Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "use anyhow::{Context, Result};\nuse clap::Args;\nuse engram_capture::import::claude_code::ClaudeCodeImporter;\nuse engram_capture::summarize::summarize_intent;\nuse engram_core::config::EngramConfig;\nuse engram_core::eventlog;\nuse engram_core::hooks;\nuse engram_core::hooks::ActiveSession;",
+        "old_string": "use anyhow::{Context, Result};\nuse clap::Args;\nuse engram_capture::import::claude_code::ClaudeCodeImporter;\nuse engram_capture::summarize::summarize_intent;\nuse engram_core::config::EngramConfig;\nuse engram_core::hooks;\nuse engram_core::hooks::ActiveSession;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:14.686Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "fn handle_session_end(storage: &GitStorage) {\n    let git_dir = storage.repo().path().to_path_buf();\n\n    let mut input = String::new();\n    if std::io::stdin().read_to_string(&mut input).is_err() {\n        tracing::debug!(\"session-end: failed to read stdin\");\n        eventlog::warn(&git_dir, \"session-end: failed to read stdin\");\n        return;\n    }\n\n    let json: serde_json::Value = match serde_json::from_str(&input) {\n        Ok(v) => v,\n        Err(e) => {\n            tracing::debug!(\"session-end: failed to parse JSON: {e}\");\n            eventlog::warn(&git_dir, format!(\"session-end: failed to parse hook JSON: {e}\"));\n            return;\n        }\n    };\n\n    let transcript_path = match json.get(\"transcript_path\").and_then(|v| v.as_str()) {\n        Some(p) => std::path::PathBuf::from(p),\n        None => {\n            tracing::debug!(\"session-end: no transcript_path in input\");\n            eventlog::warn(&git_dir, \"session-end: hook input had no transcript_path\");\n            return;\n        }\n    };\n\n    if !transcript_path.exists() {\n        tracing::debug!(\n            \"session-end: transcript file does not exist: {}\",\n            transcript_path.display()\n        );\n        eventlog::warn(\n            &git_dir,\n            format!(\n                \"session-end: transcript file does not exist: {}\",\n                transcript_path.display()\n            ),\n        );\n        return;\n    }\n\n    let mut data = match ClaudeCodeImporter::import_session(&transcript_path) {\n        Ok(d) => d,\n        Err(e) => {\n            tracing::debug!(\"session-end: failed to import session: {e}\");\n            eventlog::error(&git_dir, format!(\"session-end: failed to import session: {e}\"));\n            return;\n        }\n    };\n\n    // Best-effort LLM summarization\n    if let Err(e) = summarize_intent(&mut data) {\n        tracing::debug!(\"session-end: LLM summarization failed: {e}\");\n        eventlog::warn(\n            &git_dir,\n            format!(\"session-end: LLM summarization failed (kept heuristic summary): {e}\"),\n        );\n    }\n\n    // Check for duplicates via source_hash\n    if let Some(existing_id) = data\n        .manifest\n        .source_hash\n        .as_deref()\n        .and_then(|h| storage.find_by_source_hash(h))\n    {\n        tracing::debug!(\n            \"session-end: already imported as {}\",\n            &existing_id.as_str()[..8]\n        );\n        return;\n    }\n\n    let id = data.manifest.id.clone();\n    match storage.create(&data) {\n        Ok(_) => {\n            // Best-effort index update\n            if let Ok(engine) = SearchEngine::open(storage) {\n                if let Err(e) = engine.index_engram(&data) {\n                    eventlog::warn(\n                        &git_dir,\n                        format!(\"session-end: search indexing failed for {}: {e}\", &id.as_str()[..8]),\n                    );\n                }\n            }\n            tracing::debug!(\"session-end: imported engram {}\", &id.as_str()[..8]);\n            eventlog::info(\n                &git_dir,\n                format!(\n                    \"session-end: captured engram {} ({} tokens)\",\n                    &id.as_str()[..8],\n                    data.manifest.token_usage.total\n                ),\n            );\n\n            // Best-effort: annotate commits that reference this engram\n            auto_annotate_commits(storage, &data);\n        }\n        Err(e) => {\n            tracing::debug!(\"session-end: failed to store engram: {e}\");\n            eventlog::error(&git_dir, format!(\"session-end: failed to store engram: {e}\"));\n        }\n    }\n}",
+        "old_string": "fn handle_session_end(storage: &GitStorage) {\n    let mut input = String::new();\n    if std::io::stdin().read_to_string(&mut input).is_err() {\n        tracing::debug!(\"session-end: failed to read stdin\");\n        return;\n    }\n\n    let json: serde_json::Value = match serde_json::from_str(&input) {\n        Ok(v) => v,\n        Err(e) => {\n            tracing::debug!(\"session-end: failed to parse JSON: {e}\");\n            return;\n        }\n    };\n\n    let transcript_path = match json.get(\"transcript_path\").and_then(|v| v.as_str()) {\n        Some(p) => std::path::PathBuf::from(p),\n        None => {\n            tracing::debug!(\"session-end: no transcript_path in input\");\n            return;\n        }\n    };\n\n    if !transcript_path.exists() {\n        tracing::debug!(\n            \"session-end: transcript file does not exist: {}\",\n            transcript_path.display()\n        );\n        return;\n    }\n\n    let mut data = match ClaudeCodeImporter::import_session(&transcript_path) {\n        Ok(d) => d,\n        Err(e) => {\n            tracing::debug!(\"session-end: failed to import session: {e}\");\n            return;\n        }\n    };\n\n    // Best-effort LLM summarization\n    if let Err(e) = summarize_intent(&mut data) {\n        tracing::debug!(\"session-end: LLM summarization failed: {e}\");\n    }\n\n    // Check for duplicates via source_hash\n    if let Some(existing_id) = data\n        .manifest\n        .source_hash\n        .as_deref()\n        .and_then(|h| storage.find_by_source_hash(h))\n    {\n        tracing::debug!(\n            \"session-end: already imported as {}\",\n            &existing_id.as_str()[..8]\n        );\n        return;\n    }\n\n    let id = data.manifest.id.clone();\n    match storage.create(&data) {\n        Ok(_) => {\n            // Best-effort index update\n            if let Ok(engine) = SearchEngine::open(storage) {\n                let _ = engine.index_engram(&data);\n            }\n            tracing::debug!(\"session-end: imported engram {}\", &id.as_str()[..8]);\n\n            // Best-effort: annotate commits that reference this engram\n            auto_annotate_commits(storage, &data);\n        }\n        Err(e) => {\n            tracing::debug!(\"session-end: failed to store engram: {e}\");\n        }\n    }\n}",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:19.324Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== TokenUsage struct ===\"; grep -rn 'pub struct TokenUsage' crates/engram-core/src/model/ -A 15\necho \"\"; echo \"=== where token_usage lives in manifest ===\"; grep -n 'token_usage' crates/engram-core/src/model/engram.rs | head",
+        "description": "Verify TokenUsage fields"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:23.691Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "                    \"session-end: captured engram {} ({} tokens)\",\n                    &id.as_str()[..8],\n                    data.manifest.token_usage.total_tokens",
+        "old_string": "                    \"session-end: captured engram {} ({} tokens)\",\n                    &id.as_str()[..8],\n                    data.manifest.token_usage.total",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:29.116Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "    let git_dir = storage.repo().path().to_path_buf();\n\n    // Discover Claude Code session files for this project\n    let session_files = match ClaudeCodeImporter::discover_sessions(&workdir) {\n        Ok(files) => files,\n        Err(e) => {\n            tracing::debug!(\"Auto-capture: failed to discover sessions: {e}\");\n            eventlog::warn(&git_dir, format!(\"auto-capture: failed to discover sessions: {e}\"));\n            return;\n        }\n    };",
+        "old_string": "    // Discover Claude Code session files for this project\n    let session_files = match ClaudeCodeImporter::discover_sessions(&workdir) {\n        Ok(files) => files,\n        Err(e) => {\n            tracing::debug!(\"Auto-capture: failed to discover sessions: {e}\");\n            return;\n        }\n    };",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:35.428Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "    // Import the session\n    let mut data = match ClaudeCodeImporter::import_session(&session_path) {\n        Ok(d) => d,\n        Err(e) => {\n            tracing::debug!(\"Auto-capture: failed to import session: {e}\");\n            eventlog::error(&git_dir, format!(\"auto-capture: failed to import session: {e}\"));\n            return;\n        }\n    };\n\n    // Best-effort LLM summarization\n    if let Err(e) = summarize_intent(&mut data) {\n        tracing::debug!(\"Auto-capture: LLM summarization failed: {e}\");\n        eventlog::warn(\n            &git_dir,\n            format!(\"auto-capture: LLM summarization failed (kept heuristic summary): {e}\"),\n        );\n    }",
+        "old_string": "    // Import the session\n    let mut data = match ClaudeCodeImporter::import_session(&session_path) {\n        Ok(d) => d,\n        Err(e) => {\n            tracing::debug!(\"Auto-capture: failed to import session: {e}\");\n            return;\n        }\n    };\n\n    // Best-effort LLM summarization\n    if let Err(e) = summarize_intent(&mut data) {\n        tracing::debug!(\"Auto-capture: LLM summarization failed: {e}\");\n    }",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:42.912Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "        let id = data.manifest.id.clone();\n        match storage.create(&data) {\n            Ok(_) => {\n                // Best-effort index update\n                if let Ok(engine) = SearchEngine::open(storage) {\n                    if let Err(e) = engine.index_engram(&data) {\n                        eventlog::warn(\n                            &git_dir,\n                            format!(\"auto-capture: search indexing failed for {}: {e}\", &id.as_str()[..8]),\n                        );\n                    }\n                }\n                tracing::debug!(\"Auto-capture: imported engram {}\", &id.as_str()[..8]);\n                eventlog::info(\n                    &git_dir,\n                    format!(\n                        \"auto-capture: captured engram {} ({} tokens)\",\n                        &id.as_str()[..8],\n                        data.manifest.token_usage.total_tokens\n                    ),\n                );\n                id\n            }\n            Err(e) => {\n                tracing::debug!(\"Auto-capture: failed to store engram: {e}\");\n                eventlog::error(&git_dir, format!(\"auto-capture: failed to store engram: {e}\"));\n                return;\n            }\n        }\n    };",
+        "old_string": "        let id = data.manifest.id.clone();\n        match storage.create(&data) {\n            Ok(_) => {\n                // Best-effort index update\n                if let Ok(engine) = SearchEngine::open(storage) {\n                    let _ = engine.index_engram(&data);\n                }\n                tracing::debug!(\"Auto-capture: imported engram {}\", &id.as_str()[..8]);\n                id\n            }\n            Err(e) => {\n                tracing::debug!(\"Auto-capture: failed to store engram: {e}\");\n                return;\n            }\n        }\n    };",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:47.718Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "    if let Err(e) = session.save(git_dir) {\n        tracing::debug!(\"Auto-capture: failed to save session: {e}\");\n        eventlog::warn(git_dir, format!(\"auto-capture: failed to save active session: {e}\"));\n    }\n}",
+        "old_string": "    if let Err(e) = session.save(git_dir) {\n        tracing::debug!(\"Auto-capture: failed to save session: {e}\");\n    }\n}",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:16:59.634Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "    let workdir = match storage.workdir() {\n        Some(w) => w.to_path_buf(),\n        None => return,\n    };\n    let git_dir = storage.repo().path().to_path_buf();\n\n    // Force-push engram refs: they may be updated in-place (e.g. when commit SHAs\n    // are appended), so the push is not necessarily a fast-forward.\n    match std::process::Command::new(\"git\")\n        .args([\n            \"push\",\n            \"--force\",\n            \"origin\",\n            \"+refs/engrams/*:refs/engrams/*\",\n        ])\n        .env(\"ENGRAM_PUSHING\", \"1\")\n        .current_dir(&workdir)\n        .stdout(std::process::Stdio::piped())\n        .stderr(std::process::Stdio::piped())\n        .output()\n    {\n        Ok(output) if output.status.success() => {\n            let stderr = String::from_utf8_lossy(&output.stderr);\n            let pushed = stderr.lines().filter(|l| l.contains(\"->\")).count();\n            if pushed > 0 {\n                eprintln!(\"engram: pushed {pushed} engram ref(s) to origin\");\n                eventlog::info(&git_dir, format!(\"auto-push: pushed {pushed} engram ref(s) to origin\"));\n            }\n        }\n        Ok(output) => {\n            // Don't pollute the user's git push output, but leave a breadcrumb.\n            let stderr = String::from_utf8_lossy(&output.stderr);\n            tracing::debug!(\"Auto-push: git push failed: {stderr}\");\n            eventlog::warn(\n                &git_dir,\n                format!(\"auto-push: git push failed: {}\", stderr.trim()),\n            );\n        }\n        Err(e) => {\n            tracing::debug!(\"Auto-push: failed to run git: {e}\");\n            eventlog::warn(&git_dir, format!(\"auto-push: failed to run git: {e}\"));\n        }\n    }\n}",
+        "old_string": "    let workdir = match storage.workdir() {\n        Some(w) => w.to_path_buf(),\n        None => return,\n    };\n\n    // Force-push engram refs: they may be updated in-place (e.g. when commit SHAs\n    // are appended), so the push is not necessarily a fast-forward.\n    match std::process::Command::new(\"git\")\n        .args([\n            \"push\",\n            \"--force\",\n            \"origin\",\n            \"+refs/engrams/*:refs/engrams/*\",\n        ])\n        .env(\"ENGRAM_PUSHING\", \"1\")\n        .current_dir(&workdir)\n        .stdout(std::process::Stdio::piped())\n        .stderr(std::process::Stdio::piped())\n        .output()\n    {\n        Ok(output) if output.status.success() => {\n            let stderr = String::from_utf8_lossy(&output.stderr);\n            let pushed = stderr.lines().filter(|l| l.contains(\"->\")).count();\n            if pushed > 0 {\n                eprintln!(\"engram: pushed {pushed} engram ref(s) to origin\");\n            }\n        }\n        Ok(output) => {\n            // Silently log failures — don't pollute the user's git push output\n            let stderr = String::from_utf8_lossy(&output.stderr);\n            tracing::debug!(\"Auto-push: git push failed: {stderr}\");\n        }\n        Err(e) => {\n            tracing::debug!(\"Auto-push: failed to run git: {e}\");\n        }\n    }\n}",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:17:08.029Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== hooks mod public API ===\"; grep -rn 'pub fn\\|pub const\\|pub struct' crates/engram-core/src/hooks/mod.rs crates/engram-core/src/hooks/installer.rs crates/engram-core/src/hooks/claude_code.rs 2>/dev/null\necho \"\"; echo \"=== ListOptions ===\"; grep -n 'pub struct ListOptions\\|pub.*:' crates/engram-core/src/storage/*.rs | grep -i listoption -A0; grep -rn 'struct ListOptions' crates/engram-core/src -A 12\necho \"\"; echo \"=== SearchEngine open / index path ===\"; grep -n 'pub fn' crates/engram-query/src/search.rs | head",
+        "description": "Find hooks detection and list APIs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:17:21.035Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/hooks/installer.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:17:26.975Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/hooks/claude_code.rs",
+        "limit": 115,
+        "offset": 1
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:17:33.337Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/hooks/installer.rs",
+        "new_string": "/// Return the engram git hooks that are currently installed in `git_dir`.\n///\n/// A hook counts as installed if its script contains the engram hook marker.\npub fn installed_hooks(git_dir: &Path) -> Vec<&'static str> {\n    let hooks_dir = git_dir.join(\"hooks\");\n    HOOKS\n        .iter()\n        .copied()\n        .filter(|hook_name| {\n            fs::read_to_string(hooks_dir.join(hook_name))\n                .map(|c| c.contains(\"engram hook-handler\"))\n                .unwrap_or(false)\n        })\n        .collect()\n}\n\n/// The full set of git hooks engram manages.\npub fn managed_hooks() -> &'static [&'static str] {\n    HOOKS\n}\n\n/// Uninstall engram hooks, restoring originals if they were backed up.\npub fn uninstall_hooks(git_dir: &Path) -> Result<(), CoreError> {",
+        "old_string": "/// Uninstall engram hooks, restoring originals if they were backed up.\npub fn uninstall_hooks(git_dir: &Path) -> Result<(), CoreError> {",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:17:38.897Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/hooks/claude_code.rs",
+        "new_string": "/// Return whether the engram Claude Code `SessionEnd` hook is installed in\n/// the project's `.claude/settings.json`.\npub fn claude_code_hook_installed(project_root: &Path) -> bool {\n    let settings_path = project_root.join(\".claude\").join(\"settings.json\");\n    let Ok(content) = std::fs::read_to_string(&settings_path) else {\n        return false;\n    };\n    content.contains(ENGRAM_HOOK_MARKER)\n}\n\n/// Remove the Claude Code `SessionEnd` hook for engram.\n///\n/// Preserves all other settings and hooks.\npub fn uninstall_claude_code_hook(project_root: &Path) -> Result<(), CoreError> {",
+        "old_string": "/// Remove the Claude Code `SessionEnd` hook for engram.\n///\n/// Preserves all other settings and hooks.\npub fn uninstall_claude_code_hook(project_root: &Path) -> Result<(), CoreError> {",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:17:42.540Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram; echo \"=== hooks/mod.rs ===\"; cat crates/engram-core/src/hooks/mod.rs",
+        "description": "Check hooks mod re-exports"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:17:52.725Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== reindex.rs ===\"; cat crates/engram-cli/src/commands/reindex.rs\necho \"\"; echo \"=== output/format.rs head ===\"; sed -n '1,40p' crates/engram-cli/src/output/format.rs\necho \"\"; echo \"=== index_path usage / does index dir exist check ===\"; grep -rn 'engram-index\\|index_path\\|\\.exists()' crates/engram-query/src/search.rs | head",
+        "description": "Inspect reindex command and output format"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:16.241Z",
+      "tool_name": "Write",
+      "input": {
+        "content": "use anyhow::{Context, Result};\nuse clap::Args;\n\nuse engram_core::config::EngramConfig;\nuse engram_core::eventlog::{self, Level};\nuse engram_core::hooks::{claude_code, installer};\nuse engram_core::storage::{GitStorage, ListOptions};\n\nuse crate::output::OutputFormat;\n\n#[derive(Args)]\npub struct DoctorArgs {\n    /// Number of recent log events to display\n    #[arg(long, default_value = \"15\")]\n    pub events: usize,\n}\n\npub fn run(args: &DoctorArgs, format: OutputFormat) -> Result<()> {\n    let storage = GitStorage::discover().context(\"Not inside a Git repository\")?;\n    let git_dir = storage.repo().path().to_path_buf();\n    let workdir = storage.workdir().map(|w| w.to_path_buf());\n\n    // --- Configuration ---------------------------------------------------\n    let config = storage\n        .repo()\n        .config()\n        .ok()\n        .and_then(|c| EngramConfig::load(&c).ok());\n\n    // --- Hooks -----------------------------------------------------------\n    let installed = installer::installed_hooks(&git_dir);\n    let managed = installer::managed_hooks();\n    let claude_hook = workdir\n        .as_deref()\n        .map(claude_code::claude_code_hook_installed)\n        .unwrap_or(false);\n\n    // --- Storage / index -------------------------------------------------\n    let manifests = storage.list(&ListOptions::default()).unwrap_or_default();\n    let engram_count = manifests.len();\n    let latest = manifests.iter().map(|m| m.created_at).max();\n    let index_present =\n        git_dir.join(\"engram-index\").exists() && git_dir.join(\"engram-index/meta.json\").exists();\n\n    // --- Event log -------------------------------------------------------\n    let events = eventlog::read_recent(&git_dir, args.events);\n    let warn_count = events.iter().filter(|e| e.level == Level::Warn).count();\n    let error_count = events.iter().filter(|e| e.level == Level::Error).count();\n    let last_capture = events\n        .iter()\n        .rev()\n        .find(|e| e.level == Level::Info && e.message.contains(\"captured engram\"))\n        .map(|e| e.timestamp.clone());\n\n    if matches!(format, OutputFormat::Json) {\n        let json = serde_json::json!({\n            \"enabled\": config.as_ref().map(|c| c.enabled).unwrap_or(false),\n            \"auto_capture\": config.as_ref().map(|c| c.auto_capture).unwrap_or(false),\n            \"push_on_push\": config.as_ref().map(|c| c.push_on_push).unwrap_or(false),\n            \"default_agent\": config.as_ref().and_then(|c| c.default_agent.clone()),\n            \"git_hooks_installed\": installed,\n            \"git_hooks_managed\": managed,\n            \"claude_code_hook_installed\": claude_hook,\n            \"engram_count\": engram_count,\n            \"latest_engram\": latest.map(|t| t.to_rfc3339()),\n            \"search_index_present\": index_present,\n            \"recent_warnings\": warn_count,\n            \"recent_errors\": error_count,\n            \"last_logged_capture\": last_capture,\n        });\n        println!(\"{}\", serde_json::to_string_pretty(&json)?);\n        return Ok(());\n    }\n\n    // --- Text report -----------------------------------------------------\n    let ok = \"\\u{2713}\"; // ✓\n    let bad = \"\\u{2717}\"; // ✗\n    let warn = \"\\u{26a0}\"; // ⚠\n\n    println!(\"engram doctor\\n\");\n\n    // Repository\n    match &config {\n        Some(c) if c.enabled => println!(\"{ok} Repository initialized for engram\"),\n        _ => println!(\n            \"{bad} Repository not initialized for engram — run `engram init`\"\n        ),\n    }\n\n    // Configuration\n    if let Some(c) = &config {\n        let mark = |b: bool| if b { ok } else { bad };\n        println!(\"\\nConfiguration:\");\n        println!(\"  {} auto-capture (capture sessions on commit)\", mark(c.auto_capture));\n        println!(\"  {} push-on-push (push engram refs with code)\", mark(c.push_on_push));\n        if let Some(agent) = &c.default_agent {\n            println!(\"  {ok} default agent: {agent}\");\n        }\n    }\n\n    // Hooks\n    println!(\"\\nGit hooks:\");\n    for hook in managed {\n        if installed.contains(hook) {\n            println!(\"  {ok} {hook}\");\n        } else {\n            println!(\"  {bad} {hook} (not installed — run `engram init`)\");\n        }\n    }\n    if claude_hook {\n        println!(\"  {ok} Claude Code SessionEnd hook\");\n    } else {\n        println!(\"  {warn} Claude Code SessionEnd hook not found in .claude/settings.json\");\n    }\n\n    // Storage\n    println!(\"\\nStorage:\");\n    println!(\"  {ok} {engram_count} engram(s) stored\");\n    if let Some(t) = latest {\n        println!(\"  {ok} latest engram: {}\", t.format(\"%Y-%m-%d %H:%M UTC\"));\n    }\n    if index_present {\n        println!(\"  {ok} search index present\");\n    } else if engram_count > 0 {\n        println!(\"  {warn} search index missing — run `engram reindex`\");\n    }\n\n    // Recent activity\n    println!(\"\\nRecent activity (.git/engram.log):\");\n    if events.is_empty() {\n        println!(\"  (no events logged yet)\");\n    } else {\n        if error_count > 0 || warn_count > 0 {\n            println!(\"  {warn} {error_count} error(s), {warn_count} warning(s) in last {} event(s)\", events.len());\n        }\n        if let Some(t) = &last_capture {\n            println!(\"  {ok} last successful capture logged: {t}\");\n        }\n        println!();\n        for e in &events {\n            let glyph = match e.level {\n                Level::Info => ok,\n                Level::Warn => warn,\n                Level::Error => bad,\n            };\n            println!(\"  {glyph} {} {}\", e.timestamp, e.message);\n        }\n    }\n\n    // Verdict\n    println!();\n    if config.as_ref().map(|c| c.enabled).unwrap_or(false) && error_count == 0 {\n        println!(\"{ok} engram looks healthy.\");\n    } else if error_count > 0 {\n        println!(\"{warn} engram recorded {error_count} recent error(s) — see the log above.\");\n    }\n\n    Ok(())\n}\n",
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/doctor.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:22.065Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== ListOptions derive ===\"; sed -n '15,20p' crates/engram-core/src/storage/git_backend.rs\necho \"\"; echo \"=== OutputFormat enum ===\"; grep -rn 'enum OutputFormat' crates/engram-cli/src/output/ -A 8",
+        "description": "Check ListOptions Default and OutputFormat"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:25.927Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/mod.rs",
+        "new_string": "pub mod dead_ends;\npub mod diff;\npub mod doctor;",
+        "old_string": "pub mod dead_ends;\npub mod diff;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:28.723Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/mod.rs",
+        "limit": 30,
+        "offset": 1
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:32.226Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/mod.rs",
+        "new_string": "pub mod dead_ends;\npub mod diff;\npub mod doctor;\npub mod fetch;",
+        "old_string": "pub mod dead_ends;\npub mod diff;\npub mod fetch;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:36.201Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/mod.rs",
+        "new_string": "    /// Start the web dashboard for visualizing engram data\n    Dashboard(dashboard::DashboardArgs),\n    /// Diagnose engram setup and surface recent background failures\n    Doctor(doctor::DoctorArgs),\n    /// Print version information\n    Version,",
+        "old_string": "    /// Start the web dashboard for visualizing engram data\n    Dashboard(dashboard::DashboardArgs),\n    /// Print version information\n    Version,",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:40.293Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/main.rs",
+        "new_string": "        commands::Commands::Dashboard(args) => commands::dashboard::run(args),\n        commands::Commands::Doctor(args) => commands::doctor::run(args, cli.format),\n        commands::Commands::Version => commands::version::run(),",
+        "old_string": "        commands::Commands::Dashboard(args) => commands::dashboard::run(args),\n        commands::Commands::Version => commands::version::run(),",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:18:44.797Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo build -p engram-core -p engram-cli 2>&1 | tail -40",
+        "description": "Build core and cli"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:19:29.033Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "limit": 130,
+        "offset": 244
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:19:37.769Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "    // Discover Claude Code session files for this project\n    let session_files = match ClaudeCodeImporter::discover_sessions(&workdir) {\n        Ok(files) => files,\n        Err(e) => {\n            tracing::debug!(\"Auto-capture: failed to discover sessions: {e}\");\n            eventlog::warn(git_dir, format!(\"auto-capture: failed to discover sessions: {e}\"));\n            return;\n        }\n    };",
+        "old_string": "    let git_dir = storage.repo().path().to_path_buf();\n\n    // Discover Claude Code session files for this project\n    let session_files = match ClaudeCodeImporter::discover_sessions(&workdir) {\n        Ok(files) => files,\n        Err(e) => {\n            tracing::debug!(\"Auto-capture: failed to discover sessions: {e}\");\n            eventlog::warn(&git_dir, format!(\"auto-capture: failed to discover sessions: {e}\"));\n            return;\n        }\n    };",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:19:48.270Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "            tracing::debug!(\"Auto-capture: failed to import session: {e}\");\n            eventlog::error(git_dir, format!(\"auto-capture: failed to import session: {e}\"));\n            return;",
+        "old_string": "            tracing::debug!(\"Auto-capture: failed to import session: {e}\");\n            eventlog::error(&git_dir, format!(\"auto-capture: failed to import session: {e}\"));\n            return;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:19:52.745Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "        tracing::debug!(\"Auto-capture: LLM summarization failed: {e}\");\n        eventlog::warn(\n            git_dir,\n            format!(\"auto-capture: LLM summarization failed (kept heuristic summary): {e}\"),\n        );",
+        "old_string": "        tracing::debug!(\"Auto-capture: LLM summarization failed: {e}\");\n        eventlog::warn(\n            &git_dir,\n            format!(\"auto-capture: LLM summarization failed (kept heuristic summary): {e}\"),\n        );",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:20:01.420Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+        "new_string": "                    if let Err(e) = engine.index_engram(&data) {\n                        eventlog::warn(\n                            git_dir,\n                            format!(\"auto-capture: search indexing failed for {}: {e}\", &id.as_str()[..8]),\n                        );\n                    }\n                }\n                tracing::debug!(\"Auto-capture: imported engram {}\", &id.as_str()[..8]);\n                eventlog::info(\n                    git_dir,\n                    format!(\n                        \"auto-capture: captured engram {} ({} tokens)\",\n                        &id.as_str()[..8],\n                        data.manifest.token_usage.total_tokens\n                    ),\n                );\n                id\n            }\n            Err(e) => {\n                tracing::debug!(\"Auto-capture: failed to store engram: {e}\");\n                eventlog::error(git_dir, format!(\"auto-capture: failed to store engram: {e}\"));\n                return;",
+        "old_string": "                    if let Err(e) = engine.index_engram(&data) {\n                        eventlog::warn(\n                            &git_dir,\n                            format!(\"auto-capture: search indexing failed for {}: {e}\", &id.as_str()[..8]),\n                        );\n                    }\n                }\n                tracing::debug!(\"Auto-capture: imported engram {}\", &id.as_str()[..8]);\n                eventlog::info(\n                    &git_dir,\n                    format!(\n                        \"auto-capture: captured engram {} ({} tokens)\",\n                        &id.as_str()[..8],\n                        data.manifest.token_usage.total_tokens\n                    ),\n                );\n                id\n            }\n            Err(e) => {\n                tracing::debug!(\"Auto-capture: failed to store engram: {e}\");\n                eventlog::error(&git_dir, format!(\"auto-capture: failed to store engram: {e}\"));\n                return;",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:20:04.514Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo build -p engram-core -p engram-cli 2>&1 | tail -30",
+        "description": "Rebuild core and cli"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:21:54.735Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p engram-core eventlog 2>&1 | tail -25",
+        "description": "Run eventlog tests"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:22:02.013Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo clippy -p engram-core -p engram-cli --all-targets 2>&1 | grep -E 'warning|error' | head -30; echo \"--- clippy exit done ---\"; cargo fmt --all 2>&1 | tail -5; echo \"--- fmt check ---\"; cargo fmt --all -- --check 2>&1 | tail -10",
+        "description": "Run clippy and fmt"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:22:17.357Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\necho \"=== fmt check ===\"; cargo fmt --all -- --check 2>&1 | tail -3 && echo \"fmt OK\"\necho \"\"; echo \"=== clippy -D warnings (core+cli) ===\"; cargo clippy -p engram-core -p engram-cli --all-targets -- -D warnings 2>&1 | tail -5\necho \"\"; echo \"=== tests core+cli ===\"; cargo test -p engram-core -p engram-cli 2>&1 | grep -E 'test result|error\\[|FAILED' | head",
+        "description": "fmt check, clippy -D warnings, tests"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:22:34.243Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\necho \"=== doctor (text) ===\"; ./target/debug/engram doctor 2>&1 | head -40\necho \"\"; echo \"=== doctor (json) ===\"; ./target/debug/engram doctor --format json 2>&1 | head -25",
+        "description": "Smoke test doctor command"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:25:11.373Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "ls crates/engram-cli/tests/ 2>/dev/null || echo \"no tests dir\"; echo \"---\"; grep -rn 'predicates' crates/engram-cli/Cargo.toml",
+        "description": "Check for CLI tests dir"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:25:29.656Z",
+      "tool_name": "Write",
+      "input": {
+        "content": "//! Integration tests for the `engram doctor` command.\n\nuse std::process::Command;\n\nuse assert_cmd::prelude::*;\nuse predicates::prelude::*;\nuse tempfile::TempDir;\n\n/// Create a fresh git repo and run `engram init` inside it.\nfn init_repo() -> TempDir {\n    let tmp = TempDir::new().unwrap();\n\n    // git init + identity so commits/signatures work\n    Command::new(\"git\")\n        .args([\"init\", \"-q\"])\n        .current_dir(tmp.path())\n        .assert()\n        .success();\n    for (k, v) in [(\"user.name\", \"Test\"), (\"user.email\", \"test@example.com\")] {\n        Command::new(\"git\")\n            .args([\"config\", k, v])\n            .current_dir(tmp.path())\n            .assert()\n            .success();\n    }\n\n    Command::cargo_bin(\"engram\")\n        .unwrap()\n        .arg(\"init\")\n        .current_dir(tmp.path())\n        .assert()\n        .success();\n\n    tmp\n}\n\n#[test]\nfn doctor_reports_healthy_after_init() {\n    let tmp = init_repo();\n\n    Command::cargo_bin(\"engram\")\n        .unwrap()\n        .arg(\"doctor\")\n        .current_dir(tmp.path())\n        .assert()\n        .success()\n        .stdout(predicate::str::contains(\"Repository initialized for engram\"))\n        .stdout(predicate::str::contains(\"Git hooks:\"))\n        .stdout(predicate::str::contains(\"prepare-commit-msg\"));\n}\n\n#[test]\nfn doctor_json_has_expected_fields() {\n    let tmp = init_repo();\n\n    let output = Command::cargo_bin(\"engram\")\n        .unwrap()\n        .args([\"doctor\", \"--format\", \"json\"])\n        .current_dir(tmp.path())\n        .output()\n        .unwrap();\n    assert!(output.status.success());\n\n    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();\n    assert_eq!(json[\"enabled\"], true);\n    assert!(json[\"git_hooks_installed\"].is_array());\n    assert_eq!(json[\"recent_errors\"], 0);\n    assert!(json.get(\"engram_count\").is_some());\n}\n\n#[test]\nfn doctor_fails_outside_git_repo() {\n    let tmp = TempDir::new().unwrap();\n\n    Command::cargo_bin(\"engram\")\n        .unwrap()\n        .arg(\"doctor\")\n        .current_dir(tmp.path())\n        .assert()\n        .failure();\n}\n",
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:25:34.634Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p engram-cli --test doctor 2>&1 | grep -E 'test result|test doctor|error\\[|FAILED|panicked' | head -20",
+        "description": "Run doctor integration tests"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:25:56.998Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo fmt --all -- --check 2>&1 | tail -3 && echo \"fmt clean\"",
+        "description": "Final fmt check"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:26:06.996Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo fmt --all -- --check > /tmp/fmtout 2>&1; echo \"exit=$?\"; wc -l < /tmp/fmtout",
+        "description": "Confirm fmt check exit code"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:26:12.844Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cat /tmp/fmtout; echo \"=== applying ===\"; cargo fmt --all 2>&1 | tail -2; cargo fmt --all -- --check > /tmp/fmt2 2>&1; echo \"recheck exit=$?\"",
+        "description": "Show fmt diff and apply"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:26:52.340Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/storage/git_backend.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:27:00.452Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/hooks/session.rs",
+        "limit": 110,
+        "offset": 1
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:27:22.908Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-query/src/index/rebuild.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:27:51.481Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-query/src/search.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:28:18.514Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-query/src/index/writer.rs",
+        "limit": 55,
+        "offset": 1
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:29:04.595Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/storage/git_backend.rs",
+        "new_string": "    /// Update the engram-head pointer file. Only updates if this engram is newer.\n    /// Best-effort — failures are silently ignored.\n    ///\n    /// The read-compare-write is performed under an exclusive file lock so that\n    /// concurrent `create()` calls cannot clobber a newer pointer (a TOCTOU race\n    /// where two processes both read the old timestamp and race their writes).\n    fn update_head_pointer(&self, id: &EngramId, created_at: &chrono::DateTime<chrono::Utc>) {\n        use std::io::{Read as _, Seek as _, SeekFrom, Write as _};\n\n        // repo.path() returns the .git dir (or the repo dir for bare repos)\n        let head_path = self.repo.path().join(ENGRAM_HEAD_FILE);\n\n        // Best-effort: any failure leaves the pointer untouched and falls back\n        // to the O(n) scan in `resolve()`.\n        let result = (|| -> std::io::Result<()> {\n            let file = std::fs::OpenOptions::new()\n                .read(true)\n                .write(true)\n                .create(true)\n                .truncate(false)\n                .open(&head_path)?;\n            fs2::FileExt::lock_exclusive(&file)?;\n\n            // Read the current pointer under the lock.\n            let mut existing = String::new();\n            (&file).read_to_string(&mut existing)?;\n            // Format: \"<id> <rfc3339-timestamp>\"\n            if let Some(ts_str) = existing.split_whitespace().nth(1) {\n                if let Ok(existing_ts) = ts_str.parse::<chrono::DateTime<chrono::Utc>>() {\n                    if existing_ts >= *created_at {\n                        fs2::FileExt::unlock(&file)?;\n                        return Ok(()); // Existing head is newer or same\n                    }\n                }\n            }\n\n            let content = format!(\"{} {}\", id.as_str(), created_at.to_rfc3339());\n            file.set_len(0)?;\n            (&file).seek(SeekFrom::Start(0))?;\n            (&file).write_all(content.as_bytes())?;\n            fs2::FileExt::unlock(&file)?;\n            Ok(())\n        })();\n        let _ = result;\n    }\n\n    /// Read the engram-head pointer file. Returns the ID if valid.\n    ///\n    /// Uses a shared lock so a read never observes a torn write from a\n    /// concurrent `update_head_pointer`.\n    fn read_head_pointer(&self) -> Option<String> {\n        use std::io::Read as _;\n\n        let head_path = self.repo.path().join(ENGRAM_HEAD_FILE);\n        let file = std::fs::OpenOptions::new()\n            .read(true)\n            .open(&head_path)\n            .ok()?;\n        fs2::FileExt::lock_shared(&file).ok()?;\n        let mut content = String::new();\n        (&file).read_to_string(&mut content).ok()?;\n        fs2::FileExt::unlock(&file).ok();\n        content.split_whitespace().next().map(String::from)\n    }",
+        "old_string": "    /// Update the engram-head pointer file. Only updates if this engram is newer.\n    /// Best-effort — failures are silently ignored.\n    fn update_head_pointer(&self, id: &EngramId, created_at: &chrono::DateTime<chrono::Utc>) {\n        // repo.path() returns the .git dir (or the repo dir for bare repos)\n        let head_path = self.repo.path().join(ENGRAM_HEAD_FILE);\n\n        // Read existing pointer to check timestamp\n        if let Ok(existing) = std::fs::read_to_string(&head_path) {\n            // Format: \"<id> <rfc3339-timestamp>\"\n            if let Some(ts_str) = existing.split_whitespace().nth(1) {\n                if let Ok(existing_ts) = ts_str.parse::<chrono::DateTime<chrono::Utc>>() {\n                    if existing_ts >= *created_at {\n                        return; // Existing head is newer or same\n                    }\n                }\n            }\n        }\n\n        let content = format!(\"{} {}\", id.as_str(), created_at.to_rfc3339());\n        let _ = std::fs::write(&head_path, content);\n    }\n\n    /// Read the engram-head pointer file. Returns the ID if valid.\n    fn read_head_pointer(&self) -> Option<String> {\n        let head_path = self.repo.path().join(ENGRAM_HEAD_FILE);\n        let content = std::fs::read_to_string(&head_path).ok()?;\n        content.split_whitespace().next().map(String::from)\n    }",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:29:29.286Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-query/src/index/rebuild.rs",
+        "new_string": "use std::path::{Path, PathBuf};\n\nuse engram_core::storage::GitStorage;\n\nuse super::writer::EngramIndexWriter;\nuse crate::error::QueryError;\n\n/// Rebuild the index from scratch by reading all engrams from Git.\n///\n/// The new index is built in a sibling temporary directory and only swapped\n/// into place once it is fully committed. This avoids the race where a\n/// concurrent search opens `index_path` after it has been deleted but before\n/// the rebuild finishes (the old delete-then-build approach left the index\n/// directory missing for the entire duration of the rebuild). The live index\n/// is replaced with two `rename` calls, so the window in which it is absent is\n/// microseconds rather than the full rebuild time.\npub fn rebuild_index(storage: &GitStorage, index_path: &Path) -> Result<usize, QueryError> {\n    let (tmp_path, old_path) = scratch_paths(index_path);\n\n    // Clean up any leftovers from a previously-crashed rebuild.\n    if tmp_path.exists() {\n        std::fs::remove_dir_all(&tmp_path).map_err(QueryError::Io)?;\n    }\n    if old_path.exists() {\n        let _ = std::fs::remove_dir_all(&old_path);\n    }\n\n    // Build the full index into the temp directory.\n    let mut writer = EngramIndexWriter::open(&tmp_path)?;\n    let manifests = storage.list(&Default::default())?;\n\n    let mut count = 0;\n    for manifest in &manifests {\n        match storage.read(manifest.id.as_str()) {\n            Ok(data) => {\n                writer.index_engram(&data)?;\n                count += 1;\n            }\n            Err(e) => {\n                tracing::warn!(\"Failed to read engram {}: {e}\", manifest.id);\n            }\n        }\n    }\n\n    writer.commit()?;\n    // Drop the writer (and its lock on the temp dir) before swapping.\n    drop(writer);\n\n    swap_into_place(&tmp_path, index_path, &old_path)?;\n\n    tracing::info!(\"Indexed {count} engrams\");\n    Ok(count)\n}\n\n/// Compute sibling scratch paths next to `index_path`, made unique per-process\n/// so two concurrent rebuilds don't trample each other's temp directories.\nfn scratch_paths(index_path: &Path) -> (PathBuf, PathBuf) {\n    let pid = std::process::id();\n    let name = index_path\n        .file_name()\n        .and_then(|n| n.to_str())\n        .unwrap_or(\"engram-index\");\n    let parent = index_path.parent().unwrap_or_else(|| Path::new(\".\"));\n    (\n        parent.join(format!(\".{name}.rebuild.{pid}\")),\n        parent.join(format!(\".{name}.old.{pid}\")),\n    )\n}\n\n/// Atomically replace `index_path` with the freshly-built `tmp_path`.\nfn swap_into_place(tmp_path: &Path, index_path: &Path, old_path: &Path) -> Result<(), QueryError> {\n    // Move the live index aside first: `rename` cannot replace a non-empty\n    // directory, so the destination must not exist when we move the new one in.\n    if index_path.exists() {\n        std::fs::rename(index_path, old_path).map_err(QueryError::Io)?;\n    }\n\n    if let Err(e) = std::fs::rename(tmp_path, index_path) {\n        // Swap failed — restore the previous index so we don't end up with no\n        // index at all, then surface the error.\n        if old_path.exists() {\n            let _ = std::fs::rename(old_path, index_path);\n        }\n        return Err(QueryError::Io(e));\n    }\n\n    // The new index is live; discard the old one (best-effort).\n    if old_path.exists() {\n        let _ = std::fs::remove_dir_all(old_path);\n    }\n    Ok(())\n}",
+        "old_string": "use std::path::Path;\n\nuse engram_core::storage::GitStorage;\n\nuse super::writer::EngramIndexWriter;\nuse crate::error::QueryError;\n\n/// Rebuild the index from scratch by reading all engrams from Git.\npub fn rebuild_index(storage: &GitStorage, index_path: &Path) -> Result<usize, QueryError> {\n    // Remove existing index\n    if index_path.exists() {\n        std::fs::remove_dir_all(index_path).map_err(QueryError::Io)?;\n    }\n\n    let mut writer = EngramIndexWriter::open(index_path)?;\n    let manifests = storage.list(&Default::default())?;\n\n    let mut count = 0;\n    for manifest in &manifests {\n        match storage.read(manifest.id.as_str()) {\n            Ok(data) => {\n                writer.index_engram(&data)?;\n                count += 1;\n            }\n            Err(e) => {\n                tracing::warn!(\"Failed to read engram {}: {e}\", manifest.id);\n            }\n        }\n    }\n\n    writer.commit()?;\n\n    tracing::info!(\"Indexed {count} engrams\");\n    Ok(count)\n}",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:29:36.667Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo build -p engram-core -p engram-query 2>&1 | tail -15",
+        "description": "Build core and query"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:30:05.419Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-core/src/storage/git_backend.rs",
+        "new_string": "    #[test]\n    fn test_head_pointer_tracks_newest() {\n        use chrono::Duration;\n\n        let tmp = TempDir::new().unwrap();\n        Repository::init(tmp.path()).unwrap();\n        let storage = GitStorage::open(tmp.path()).unwrap();\n        storage.init().unwrap();\n\n        let base = Utc::now();\n\n        // Create an older engram, then a newer one.\n        let mut older = make_test_data();\n        older.manifest.created_at = base;\n        let older_id = storage.create(&older).unwrap();\n\n        let mut newer = make_test_data();\n        newer.manifest.created_at = base + Duration::seconds(10);\n        let newer_id = storage.create(&newer).unwrap();\n\n        // HEAD resolves to the newest engram.\n        assert_eq!(storage.resolve(\"HEAD\").unwrap(), newer_id.as_str());\n\n        // Creating an engram with an *older* timestamp must not move HEAD back.\n        let mut stale = make_test_data();\n        stale.manifest.created_at = base - Duration::seconds(10);\n        storage.create(&stale).unwrap();\n        assert_eq!(storage.resolve(\"HEAD\").unwrap(), newer_id.as_str());\n\n        // Sanity: the older engram is still readable, HEAD is not it.\n        assert_ne!(storage.resolve(\"HEAD\").unwrap(), older_id.as_str());\n    }\n\n    #[test]\n    fn test_head_pointer_repaired_after_deletion() {\n        let tmp = TempDir::new().unwrap();\n        Repository::init(tmp.path()).unwrap();\n        let storage = GitStorage::open(tmp.path()).unwrap();\n        storage.init().unwrap();\n\n        let data = make_test_data();\n        let id = storage.create(&data).unwrap();\n        assert_eq!(storage.resolve(\"HEAD\").unwrap(), id.as_str());\n\n        // Delete the engram the pointer references; resolve must fall back to\n        // the O(n) scan and not return a dangling id.\n        storage.delete(id.as_str()).unwrap();\n        assert!(storage.resolve(\"HEAD\").is_err());\n    }\n\n    #[test]\n    fn test_list_with_limit() {",
+        "old_string": "    #[test]\n    fn test_list_with_limit() {",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:30:19.894Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-query/src/search.rs",
+        "new_string": "    #[test]\n    fn test_rebuild_twice_swaps_index_in_place() {\n        let tmp = TempDir::new().unwrap();\n        git2::Repository::init(tmp.path()).unwrap();\n        let storage = GitStorage::open(tmp.path()).unwrap();\n        storage.init().unwrap();\n\n        let data1 = make_test_data(\"Add OAuth2 authentication\", &[\"src/auth.rs\"]);\n        storage.create(&data1).unwrap();\n\n        let engine = SearchEngine::open(&storage).unwrap();\n        assert_eq!(engine.rebuild(&storage).unwrap(), 1);\n        assert!(!engine.search(&storage, \"OAuth2\", 10).unwrap().is_empty());\n\n        // A second engram plus a rebuild must replace the existing on-disk index\n        // (exercises the \"move live aside, rename temp into place\" swap path).\n        let data2 = make_test_data(\"Fix rate limiting bug\", &[\"src/rate.rs\"]);\n        storage.create(&data2).unwrap();\n        assert_eq!(engine.rebuild(&storage).unwrap(), 2);\n\n        // Both old and new content are searchable after the swap.\n        assert!(!engine.search(&storage, \"OAuth2\", 10).unwrap().is_empty());\n        assert!(!engine.search(&storage, \"limiting\", 10).unwrap().is_empty());\n\n        // No scratch directories are left behind next to the live index.\n        let parent = engine.index_path().parent().unwrap();\n        for entry in std::fs::read_dir(parent).unwrap().flatten() {\n            let name = entry.file_name();\n            let name = name.to_string_lossy();\n            assert!(\n                !name.contains(\"rebuild\") && !name.contains(\".old\"),\n                \"leftover scratch dir: {name}\"\n            );\n        }\n    }\n\n    #[test]\n    fn test_rebuild_recovers_from_stale_scratch_dir() {\n        let tmp = TempDir::new().unwrap();\n        git2::Repository::init(tmp.path()).unwrap();\n        let storage = GitStorage::open(tmp.path()).unwrap();\n        storage.init().unwrap();\n        storage\n            .create(&make_test_data(\"Add auth\", &[\"src/auth.rs\"]))\n            .unwrap();\n\n        let engine = SearchEngine::open(&storage).unwrap();\n\n        // Simulate a crashed prior rebuild by leaving a stale scratch dir with\n        // the exact name this process would use.\n        let pid = std::process::id();\n        let parent = engine.index_path().parent().unwrap();\n        let stale = parent.join(format!(\".engram-index.rebuild.{pid}\"));\n        std::fs::create_dir_all(stale.join(\"garbage\")).unwrap();\n\n        // Rebuild must clean it up and still succeed.\n        assert_eq!(engine.rebuild(&storage).unwrap(), 1);\n        assert!(!stale.exists());\n        assert!(!engine.search(&storage, \"auth\", 10).unwrap().is_empty());\n    }\n\n    #[test]\n    fn test_rebuild_reindexes_all() {",
+        "old_string": "    #[test]\n    fn test_rebuild_reindexes_all() {",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:30:27.226Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\ncargo test -p engram-core -p engram-query 2>&1 | grep -E 'test result|error\\[|FAILED|panicked' | head",
+        "description": "Run core and query tests"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:30:41.873Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\ncargo clippy --workspace --all-targets -- -D warnings 2>&1 | grep -E 'warning|error' | head -20; echo \"clippy done (exit ${PIPESTATUS[0]})\"\ncargo fmt --all 2>&1 | tail -2; cargo fmt --all -- --check > /tmp/fmt3 2>&1; echo \"fmt check exit=$?\"",
+        "description": "Workspace clippy and fmt"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:30:59.514Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:31:09.940Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs",
+        "new_string": "use std::process::Command;\n\nuse assert_cmd::cargo::cargo_bin;\nuse assert_cmd::prelude::*;\nuse predicates::prelude::*;\nuse tempfile::TempDir;\n\n/// A `Command` for the built `engram` binary.\nfn engram() -> Command {\n    Command::new(cargo_bin(\"engram\"))\n}\n\n/// Create a fresh git repo and run `engram init` inside it.\nfn init_repo() -> TempDir {\n    let tmp = TempDir::new().unwrap();\n\n    // git init + identity so commits/signatures work\n    Command::new(\"git\")\n        .args([\"init\", \"-q\"])\n        .current_dir(tmp.path())\n        .assert()\n        .success();\n    for (k, v) in [(\"user.name\", \"Test\"), (\"user.email\", \"test@example.com\")] {\n        Command::new(\"git\")\n            .args([\"config\", k, v])\n            .current_dir(tmp.path())\n            .assert()\n            .success();\n    }\n\n    engram().arg(\"init\").current_dir(tmp.path()).assert().success();\n\n    tmp\n}",
+        "old_string": "use std::process::Command;\n\nuse assert_cmd::prelude::*;\nuse predicates::prelude::*;\nuse tempfile::TempDir;\n\n/// Create a fresh git repo and run `engram init` inside it.\nfn init_repo() -> TempDir {\n    let tmp = TempDir::new().unwrap();\n\n    // git init + identity so commits/signatures work\n    Command::new(\"git\")\n        .args([\"init\", \"-q\"])\n        .current_dir(tmp.path())\n        .assert()\n        .success();\n    for (k, v) in [(\"user.name\", \"Test\"), (\"user.email\", \"test@example.com\")] {\n        Command::new(\"git\")\n            .args([\"config\", k, v])\n            .current_dir(tmp.path())\n            .assert()\n            .success();\n    }\n\n    Command::cargo_bin(\"engram\")\n        .unwrap()\n        .arg(\"init\")\n        .current_dir(tmp.path())\n        .assert()\n        .success();\n\n    tmp\n}",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:31:19.605Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs",
+        "new_string": "use assert_cmd::cargo::cargo_bin;\nuse assert_cmd::prelude::*;\nuse predicates::prelude::*;\nuse tempfile::TempDir;\n\n/// A `Command` for the built `engram` binary.\nfn engram() -> Command {\n    Command::new(cargo_bin!(\"engram\"))\n}",
+        "old_string": "use assert_cmd::cargo::cargo_bin;\nuse assert_cmd::prelude::*;\nuse predicates::prelude::*;\nuse tempfile::TempDir;\n\n/// A `Command` for the built `engram` binary.\nfn engram() -> Command {\n    Command::new(cargo_bin(\"engram\"))\n}",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:31:42.187Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs",
+        "new_string": "use assert_cmd::prelude::*;\nuse predicates::prelude::*;\nuse tempfile::TempDir;\n\n/// A `Command` for the built `engram` binary.\nfn engram() -> Command {\n    Command::new(assert_cmd::cargo::cargo_bin!(\"engram\"))\n}",
+        "old_string": "use assert_cmd::cargo::cargo_bin;\nuse assert_cmd::prelude::*;\nuse predicates::prelude::*;\nuse tempfile::TempDir;\n\n/// A `Command` for the built `engram` binary.\nfn engram() -> Command {\n    Command::new(cargo_bin!(\"engram\"))\n}",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:32:15.767Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\ncargo test -p engram-cli --test doctor 2>&1 | grep -E 'test result|error|FAILED|warning:' | head -15",
+        "description": "Rebuild and run doctor tests"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:33:09.508Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs",
+        "new_string": "    engram()\n        .arg(\"doctor\")\n        .current_dir(tmp.path())\n        .assert()\n        .success()\n        .stdout(predicate::str::contains(\n            \"Repository initialized for engram\",\n        ))",
+        "old_string": "    Command::cargo_bin(\"engram\")\n        .unwrap()\n        .arg(\"doctor\")\n        .current_dir(tmp.path())\n        .assert()\n        .success()\n        .stdout(predicate::str::contains(\n            \"Repository initialized for engram\",\n        ))",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:33:28.221Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs",
+        "new_string": "    let output = engram()\n        .args([\"doctor\", \"--format\", \"json\"])\n        .current_dir(tmp.path())\n        .output()\n        .unwrap();",
+        "old_string": "    let output = Command::cargo_bin(\"engram\")\n        .unwrap()\n        .args([\"doctor\", \"--format\", \"json\"])\n        .current_dir(tmp.path())\n        .output()\n        .unwrap();",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:33:42.362Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs",
+        "new_string": "    engram()\n        .arg(\"doctor\")\n        .current_dir(tmp.path())\n        .assert()\n        .failure();",
+        "old_string": "    Command::cargo_bin(\"engram\")\n        .unwrap()\n        .arg(\"doctor\")\n        .current_dir(tmp.path())\n        .assert()\n        .failure();",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:33:48.464Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\ncargo fmt --all 2>&1 | tail -1\necho \"=== clippy workspace -D warnings ===\"; cargo clippy --workspace --all-targets -- -D warnings 2>&1 | grep -E 'warning:|error' | head; echo \"clippy exit=${PIPESTATUS[0]}\"\necho \"=== full workspace test ===\"; cargo test --workspace 2>&1 | grep -E 'test result|error\\[|FAILED|panicked'",
+        "description": "fmt, clippy, full test suite"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:34:52.280Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\ncargo clippy --workspace --all-targets -- -D warnings > /tmp/clip 2>&1; echo \"clippy exit=$?\"; grep -cE 'warning:|error' /tmp/clip; cargo fmt --all -- --check >/dev/null 2>&1; echo \"fmt exit=$?\"",
+        "description": "Confirm clippy and fmt clean exit codes"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:36:41.544Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== .gitbook.yaml ===\"; cat .gitbook.yaml\necho \"\"; echo \"=== docs/ ===\"; ls -R docs/ 2>/dev/null | head -60\necho \"\"; echo \"=== README sections (headers) ===\"; grep -n '^#\\|^| \\`engram' README.md | head -60",
+        "description": "Inspect docs and README structure"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:36:50.681Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== README CLI Reference (348-378) ===\"; sed -n '348,378p' README.md\necho \"\"; echo \"=== docs/SUMMARY.md ===\"; cat docs/SUMMARY.md\necho \"\"; echo \"=== docs/cli/reindex.md (sample) ===\"; cat docs/cli/reindex.md",
+        "description": "Read README CLI ref, SUMMARY, sample doc"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:36:59.992Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/README.md",
+        "new_string": "| `reindex`     | Rebuild the search index |\n| `doctor`      | Diagnose setup and surface recent background failures (`--events N`) |\n| `version`     | Print version information |",
+        "old_string": "| `reindex`     | Rebuild the search index |\n| `version`     | Print version information |",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:37:07.958Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/README.md",
+        "limit": 14,
+        "offset": 368
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:37:16.449Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/README.md",
+        "new_string": "| `reindex`     | Rebuild the search index |\n| `doctor`      | Diagnose setup and surface recent background failures (`--events N`) |\n| `version`     | Print version information |",
+        "old_string": "| `reindex`     | Rebuild the search index |\n| `version`     | Print version information |",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:37:27.285Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/README.md",
+        "limit": 14,
+        "offset": 65
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:37:34.100Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/README.md",
+        "new_string": "Existing git hooks are preserved -- engram chains after them via `.pre-engram` backups. All hooks fail silently to never break your workflow.\n\nBecause hooks never interrupt git, capture failures leave a breadcrumb in `.git/engram.log` instead of an error. Run `engram doctor` at any time to check your setup and review recent background activity:\n\n```bash\nengram doctor          # config, hooks, storage, and recent capture/push events\n```",
+        "old_string": "Existing git hooks are preserved -- engram chains after them via `.pre-engram` backups. All hooks fail silently to never break your workflow.",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:37:52.143Z",
+      "tool_name": "Write",
+      "input": {
+        "content": "# engram doctor\n\nDiagnose your engram setup and surface recent background failures.\n\n## Usage\n\n```bash\nengram doctor [--events N]\n```\n\n## Description\n\n`engram doctor` is a read-only health check. It inspects the current repository\nand reports, in one place:\n\n- **Repository** -- whether engram is initialized (`engram.enabled`).\n- **Configuration** -- auto-capture, push-on-push, and default agent settings.\n- **Git hooks** -- which of `prepare-commit-msg`, `post-commit`, and `pre-push`\n  are installed, plus whether the Claude Code `SessionEnd` hook is present in\n  `.claude/settings.json`.\n- **Storage** -- how many engrams are stored, the timestamp of the most recent\n  one, and whether the search index is present.\n- **Recent activity** -- the tail of the event log at `.git/engram.log`, with a\n  count of recent errors and warnings and the time of the last successful\n  capture.\n\n### Why this exists\n\nEngram's git hooks and auto-capture run detached from your terminal and **fail\nsilently on purpose** -- they must never break `git commit` or `git push`. The\ndownside is that a misconfigured or broken capture looks identical to a repo\nthat simply has nothing to capture.\n\nTo make those outcomes visible, background operations append timestamped events\nto `.git/engram.log` (a best-effort, size-bounded file inside `.git/`, so it is\nnever committed). `engram doctor` reads that log and the rest of your setup so\nyou can tell at a glance whether capture is working.\n\n`--events N` controls how many recent log entries are shown (default `15`).\n\n## Examples\n\n```bash\n# Full health report\nengram doctor\n\n# Show the last 50 logged events\nengram doctor --events 50\n\n# Machine-readable output for scripts/CI\nengram doctor --format json\n```\n\nExample output:\n\n```\nengram doctor\n\n✓ Repository initialized for engram\n\nConfiguration:\n  ✓ auto-capture (capture sessions on commit)\n  ✓ push-on-push (push engram refs with code)\n\nGit hooks:\n  ✓ prepare-commit-msg\n  ✓ post-commit\n  ✓ pre-push\n  ✓ Claude Code SessionEnd hook\n\nStorage:\n  ✓ 45 engram(s) stored\n  ✓ latest engram: 2026-03-14 02:57 UTC\n  ✓ search index present\n\nRecent activity (.git/engram.log):\n  ✓ last successful capture logged: 2026-03-14T02:57:59+00:00\n\n  ✓ 2026-03-14T02:57:59+00:00 session-end: captured engram a1b2c3d4 (47832 tokens)\n\n✓ engram looks healthy.\n```\n\n## JSON output\n\n`--format json` emits a structured object suitable for CI checks:\n\n```json\n{\n  \"enabled\": true,\n  \"auto_capture\": true,\n  \"push_on_push\": true,\n  \"default_agent\": null,\n  \"git_hooks_installed\": [\"prepare-commit-msg\", \"post-commit\", \"pre-push\"],\n  \"git_hooks_managed\": [\"prepare-commit-msg\", \"post-commit\", \"pre-push\"],\n  \"claude_code_hook_installed\": true,\n  \"engram_count\": 45,\n  \"latest_engram\": \"2026-03-14T02:57:59.744+00:00\",\n  \"search_index_present\": true,\n  \"recent_warnings\": 0,\n  \"recent_errors\": 0,\n  \"last_logged_capture\": \"2026-03-14T02:57:59+00:00\"\n}\n```\n\n## See Also\n\n- [init](init.md) -- Sets up hooks and configuration that `doctor` checks\n- [config](config.md) -- Global engram configuration\n- [reindex](reindex.md) -- Rebuild the search index if `doctor` reports it missing\n",
+        "file_path": "/Users/sjonas/engram/docs/cli/doctor.md"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:37:59.482Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/SUMMARY.md",
+        "new_string": "* [reindex](cli/reindex.md)\n* [doctor](cli/doctor.md)\n* [version](cli/version.md)",
+        "old_string": "* [reindex](cli/reindex.md)\n* [version](cli/version.md)",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:38:04.777Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/SUMMARY.md",
+        "limit": 10,
+        "offset": 30
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:38:09.795Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/SUMMARY.md",
+        "new_string": "* [browse](cli/browse.md)\n* [dashboard](cli/dashboard.md)\n* [doctor](cli/doctor.md)\n* [mcp](cli/mcp.md)",
+        "old_string": "* [browse](cli/browse.md)\n* [dashboard](cli/dashboard.md)\n* [mcp](cli/mcp.md)",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:38:31.015Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== cli/README.md ===\"; cat docs/cli/README.md\necho \"\"; echo \"=== guides/git-hooks.md tail ===\"; tail -30 docs/guides/git-hooks.md 2>/dev/null",
+        "description": "Inspect cli README and git-hooks guide"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:38:38.293Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/cli/README.md",
+        "new_string": "The `engram` CLI provides 30 commands for capturing, querying, and syncing agent reasoning.",
+        "old_string": "The `engram` CLI provides 29 commands for capturing, querying, and syncing agent reasoning.",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:38:49.617Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/cli/README.md",
+        "limit": 4,
+        "offset": 1
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:39:03.997Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/cli/README.md",
+        "new_string": "The `engram` CLI provides 30 commands for capturing, querying, and syncing agent reasoning.",
+        "old_string": "The `engram` CLI provides 29 commands for capturing, querying, and syncing agent reasoning.",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:39:08.784Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/cli/README.md",
+        "new_string": "| [gc](gc.md) | Garbage collect old engrams |\n| [reindex](reindex.md) | Rebuild the search index |\n| [doctor](doctor.md) | Diagnose setup and surface recent background failures |",
+        "old_string": "| [gc](gc.md) | Garbage collect old engrams |\n| [reindex](reindex.md) | Rebuild the search index |",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:39:18.279Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/guides/git-hooks.md",
+        "limit": 20,
+        "offset": 1
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:39:33.663Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/docs/guides/git-hooks.md",
+        "new_string": "## Hook Safety\n\n- **Existing hooks are preserved** -- engram chains after them via `.pre-engram` backups\n- **Hooks fail silently** -- a hook error never breaks your git workflow\n- **File locking** -- `ActiveSession` and the `engram-head` pointer use `fs2` advisory locks to prevent concurrent commit conflicts\n\n## Troubleshooting\n\nBecause hooks fail silently, a broken or misconfigured capture looks the same as\na repo with nothing to capture. To make those outcomes visible, background\noperations append timestamped events to a best-effort, size-bounded log at\n`.git/engram.log` (inside `.git/`, so it is never committed).\n\nRun [`engram doctor`](../cli/doctor.md) to check which hooks are installed, your\nconfiguration, storage and index state, and the tail of that log -- including\nrecent errors, warnings, and the time of the last successful capture:\n\n```bash\nengram doctor\nengram doctor --events 50    # show more log history\n```\n\nIf `doctor` reports that no engrams are being captured, common causes are:\n\n- The Claude Code `SessionEnd` hook is missing from `.claude/settings.json`\n  (re-run `engram init`).\n- The `engram` binary is not on `PATH` in the environment git runs hooks from.\n- `ANTHROPIC_API_KEY` is unset, so sessions are captured but summaries fall back\n  to heuristics (logged as a warning, not an error).",
+        "old_string": "## Hook Safety\n\n- **Existing hooks are preserved** -- engram chains after them via `.pre-engram` backups\n- **Hooks fail silently** -- a hook error never breaks your git workflow\n- **File locking** -- `ActiveSession` uses `fs2` advisory locks to prevent concurrent commit conflicts",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:39:46.921Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\necho \"=== README building section ===\"; sed -n '418,432p' README.md\necho \"\"; echo \"=== total Rust tests now ===\"; export PATH=\"$HOME/.cargo/bin:$PATH\"; cargo test --workspace 2>&1 | grep -oE '[0-9]+ passed' | awk '{s+=$1} END {print s\" passed total\"}'",
+        "description": "Check README test count and actual total"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:40:23.696Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/engram/README.md",
+        "new_string": "# Run tests (197 Rust + 10 Python + 7 TypeScript = 214 total)",
+        "old_string": "# Run tests (147 Rust + 10 Python + 7 TypeScript = 164 total)",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:40:48.351Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cd /Users/sjonas/engram\ncargo clippy --workspace --all-targets -- -D warnings >/dev/null 2>&1; echo \"clippy=$?\"\ncargo fmt --all -- --check >/dev/null 2>&1; echo \"fmt=$?\"\necho \"=== changed files ===\"; git status --short | grep -v '^??' ; echo \"--- new untracked (relevant) ---\"; git status --short | grep -E 'doctor|eventlog'\necho \"=== doctor still works ===\"; ./target/debug/engram doctor 2>&1 | tail -4",
+        "description": "Final clippy/fmt/status check"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:41:50.346Z",
+      "tool_name": "Read",
+      "input": {
+        "file_path": "/Users/sjonas/.claude/projects/-Users-sjonas-engram/memory/MEMORY.md"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:42:06.433Z",
+      "tool_name": "Edit",
+      "input": {
+        "file_path": "/Users/sjonas/.claude/projects/-Users-sjonas-engram/memory/MEMORY.md",
+        "new_string": "## Project State\n- All phases complete + 5 feature additions (line-level why, audit, cross-repo search, dashboard, TUI)\n- 9 workspace crates: engram-core, engram-capture, engram-query, engram-protocol, engram-sdk, engram-mcp, engram-dashboard, engram-tui, engram-cli\n- ~197 Rust tests passing, clippy clean (-D warnings), fmt clean\n- 30 CLI commands (29 public + 1 hidden hook-handler)\n- `unsafe_code = \"forbid\"` workspace-wide\n- MCP server fully integrated (.mcp.json, auto-init, 8 tools)\n- Auto-capture (pre-commit hooks) and auto-push (pre-push with ENGRAM_PUSHING guard)\n- Dashboard: axum 0.8, embedded SPA via include_str!(), port 3000 default\n- TUI: ratatui 0.29 + crossterm 0.28, split-panel layout\n- Cross-repo: GlobalConfig at ~/.config/engram/repos.toml, auto-registered on init\n\n## In-Progress Improvement Work (started 2026-05-28)\nWorking through a ranked improvement list from a deep-dive review. Done so far:\n- #1 Observability: new `engram_core::eventlog` module (best-effort append log at `.git/engram.log`, size-bounded 256KiB w/ one .old rotation, structured `Entry`). Wired into hook_handler.rs failure/success points. New `engram doctor` command (commands/doctor.rs) reports config/hooks/storage/index + tail of eventlog; supports --format json. CLI integration tests in tests/doctor.rs.\n- #2 Concurrency: HEAD-pointer update now uses fs2 exclusive lock (git_backend.rs update_head_pointer/read_head_pointer) to fix TOCTOU; index rebuild (engram-query/index/rebuild.rs) now builds in sibling temp dir + atomic rename swap instead of delete-then-build.\nRemaining queued: #3 test integration surfaces (cli/dashboard/tui had 0 tests), #4 capture parsing robustness (path collision in path_to_claude_key, timestamp fallback to Utc::now, non-adjacent dedup, LLM retry+cost tracking), #5 nits (Signature::now().unwrap() in annotate/init/hook_handler, trace double-read, review all-or-nothing cost, O(n) manifest scans), plus: cargo-audit/deny in CI, manifest schema migration path, MSRV check.\nNote: `[..8]` ID slicing flagged by explorers is low-risk (EngramId always 32-char hex).",
+        "old_string": "## Project State\n- All phases complete + 5 feature additions (line-level why, audit, cross-repo search, dashboard, TUI)\n- 9 workspace crates: engram-core, engram-capture, engram-query, engram-protocol, engram-sdk, engram-mcp, engram-dashboard, engram-tui, engram-cli\n- 150 Rust tests passing, clippy clean, fmt clean\n- 28 CLI commands (27 public + 1 hidden hook-handler)\n- `unsafe_code = \"forbid\"` workspace-wide\n- MCP server fully integrated (.mcp.json, auto-init, 8 tools)\n- Auto-capture (pre-commit hooks) and auto-push (pre-push with ENGRAM_PUSHING guard)\n- Dashboard: axum 0.8, embedded SPA via include_str!(), port 3000 default\n- TUI: ratatui 0.29 + crossterm 0.28, split-panel layout\n- Cross-repo: GlobalConfig at ~/.config/engram/repos.toml, auto-registered on init",
+        "replace_all": false
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:44:41.588Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\ngit checkout -b improve/reliability-pass 2>&1\necho \"--- branch ---\"; git branch --show-current",
+        "description": "Create feature branch"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:45:12.988Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\n# Commit 1: observability (#1) — eventlog + doctor + hook logging + docs\ngit add \\\n  crates/engram-core/src/eventlog.rs \\\n  crates/engram-core/src/lib.rs \\\n  crates/engram-core/src/hooks/installer.rs \\\n  crates/engram-core/src/hooks/claude_code.rs \\\n  crates/engram-cli/src/commands/doctor.rs \\\n  crates/engram-cli/src/commands/hook_handler.rs \\\n  crates/engram-cli/src/commands/mod.rs \\\n  crates/engram-cli/src/main.rs \\\n  crates/engram-cli/tests/doctor.rs \\\n  README.md \\\n  docs/SUMMARY.md \\\n  docs/cli/README.md \\\n  docs/cli/doctor.md \\\n  docs/guides/git-hooks.md\necho \"=== staged ===\"; git diff --cached --name-only",
+        "description": "Stage observability commit files"
+      },
+      "is_error": false
+    },
+    {
+      "timestamp": "2026-05-29T04:45:37.246Z",
+      "tool_name": "Bash",
+      "input": {
+        "command": "cd /Users/sjonas/engram\ngit commit -q -F - <<'EOF'\nfeat: surface silent hook failures via event log and `engram doctor`\n\nGit hooks and auto-capture run detached from any terminal and fail\nsilently by design, so a broken capture looked identical to a repo with\nnothing to capture. Make those outcomes observable.\n\n- Add `engram_core::eventlog`: a best-effort, size-bounded append log at\n  `.git/engram.log` (256KiB with one rotation). Never panics or\n  propagates errors, so it can't break the git operation that triggered\n  it. Parses back into structured entries.\n- Wire it into hook_handler.rs: import/store failures -> ERROR,\n  recoverable problems (stdin/JSON/transcript, summarization fallback,\n  indexing) -> WARN, successful captures/pushes -> INFO. Benign skips\n  stay at debug.\n- Add `engram doctor`: reports init/config state, installed git hooks and\n  the Claude Code SessionEnd hook, engram count, latest capture, search\n  index presence, and a tail of the event log with error/warn counts.\n  Supports `--format json`.\n- Add `installed_hooks`/`managed_hooks` (installer) and\n  `claude_code_hook_installed` (claude_code) detection helpers.\n- Tests: eventlog unit tests + doctor CLI integration tests.\n- Docs: new cli/doctor.md, troubleshooting section in guides/git-hooks.md,\n  README + SUMMARY + cli/README updates.\n\nCo-Authored-By: claude-flow <ruv@ruv.net>\nEOF\necho \"exit=$?\"; git log --oneline -1",
+        "description": "Commit observability changes"
+      },
+      "is_error": false
+    }
+  ],
+  "file_changes": [
+    {
+      "path": "/Users/sjonas/engram/crates/engram-core/src/eventlog.rs",
+      "change_type": "created"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-core/src/lib.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-cli/src/commands/hook_handler.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-core/src/hooks/installer.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-core/src/hooks/claude_code.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-cli/src/commands/doctor.rs",
+      "change_type": "created"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-cli/src/commands/mod.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-cli/src/main.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-cli/tests/doctor.rs",
+      "change_type": "created"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-core/src/storage/git_backend.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-query/src/index/rebuild.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/crates/engram-query/src/search.rs",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/README.md",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/docs/cli/doctor.md",
+      "change_type": "created"
+    },
+    {
+      "path": "/Users/sjonas/engram/docs/SUMMARY.md",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/docs/cli/README.md",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/engram/docs/guides/git-hooks.md",
+      "change_type": "modified"
+    },
+    {
+      "path": "/Users/sjonas/.claude/projects/-Users-sjonas-engram/memory/MEMORY.md",
+      "change_type": "modified"
+    }
+  ]
+}
