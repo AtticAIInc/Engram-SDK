@@ -207,6 +207,67 @@ mod tests {
     }
 
     #[test]
+    fn test_rebuild_twice_swaps_index_in_place() {
+        let tmp = TempDir::new().unwrap();
+        git2::Repository::init(tmp.path()).unwrap();
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let data1 = make_test_data("Add OAuth2 authentication", &["src/auth.rs"]);
+        storage.create(&data1).unwrap();
+
+        let engine = SearchEngine::open(&storage).unwrap();
+        assert_eq!(engine.rebuild(&storage).unwrap(), 1);
+        assert!(!engine.search(&storage, "OAuth2", 10).unwrap().is_empty());
+
+        // A second engram plus a rebuild must replace the existing on-disk index
+        // (exercises the "move live aside, rename temp into place" swap path).
+        let data2 = make_test_data("Fix rate limiting bug", &["src/rate.rs"]);
+        storage.create(&data2).unwrap();
+        assert_eq!(engine.rebuild(&storage).unwrap(), 2);
+
+        // Both old and new content are searchable after the swap.
+        assert!(!engine.search(&storage, "OAuth2", 10).unwrap().is_empty());
+        assert!(!engine.search(&storage, "limiting", 10).unwrap().is_empty());
+
+        // No scratch directories are left behind next to the live index.
+        let parent = engine.index_path().parent().unwrap();
+        for entry in std::fs::read_dir(parent).unwrap().flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            assert!(
+                !name.contains("rebuild") && !name.contains(".old"),
+                "leftover scratch dir: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_rebuild_recovers_from_stale_scratch_dir() {
+        let tmp = TempDir::new().unwrap();
+        git2::Repository::init(tmp.path()).unwrap();
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+        storage
+            .create(&make_test_data("Add auth", &["src/auth.rs"]))
+            .unwrap();
+
+        let engine = SearchEngine::open(&storage).unwrap();
+
+        // Simulate a crashed prior rebuild by leaving a stale scratch dir with
+        // the exact name this process would use.
+        let pid = std::process::id();
+        let parent = engine.index_path().parent().unwrap();
+        let stale = parent.join(format!(".engram-index.rebuild.{pid}"));
+        std::fs::create_dir_all(stale.join("garbage")).unwrap();
+
+        // Rebuild must clean it up and still succeed.
+        assert_eq!(engine.rebuild(&storage).unwrap(), 1);
+        assert!(!stale.exists());
+        assert!(!engine.search(&storage, "auth", 10).unwrap().is_empty());
+    }
+
+    #[test]
     fn test_rebuild_reindexes_all() {
         let tmp = TempDir::new().unwrap();
         git2::Repository::init(tmp.path()).unwrap();

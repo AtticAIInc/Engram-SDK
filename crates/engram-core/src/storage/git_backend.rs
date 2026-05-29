@@ -197,30 +197,66 @@ impl GitStorage {
 
     /// Update the engram-head pointer file. Only updates if this engram is newer.
     /// Best-effort — failures are silently ignored.
+    ///
+    /// The read-compare-write is performed under an exclusive file lock so that
+    /// concurrent `create()` calls cannot clobber a newer pointer (a TOCTOU race
+    /// where two processes both read the old timestamp and race their writes).
     fn update_head_pointer(&self, id: &EngramId, created_at: &chrono::DateTime<chrono::Utc>) {
+        use std::io::{Read as _, Seek as _, SeekFrom, Write as _};
+
         // repo.path() returns the .git dir (or the repo dir for bare repos)
         let head_path = self.repo.path().join(ENGRAM_HEAD_FILE);
 
-        // Read existing pointer to check timestamp
-        if let Ok(existing) = std::fs::read_to_string(&head_path) {
+        // Best-effort: any failure leaves the pointer untouched and falls back
+        // to the O(n) scan in `resolve()`.
+        let result = (|| -> std::io::Result<()> {
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(&head_path)?;
+            fs2::FileExt::lock_exclusive(&file)?;
+
+            // Read the current pointer under the lock.
+            let mut existing = String::new();
+            (&file).read_to_string(&mut existing)?;
             // Format: "<id> <rfc3339-timestamp>"
             if let Some(ts_str) = existing.split_whitespace().nth(1) {
                 if let Ok(existing_ts) = ts_str.parse::<chrono::DateTime<chrono::Utc>>() {
                     if existing_ts >= *created_at {
-                        return; // Existing head is newer or same
+                        fs2::FileExt::unlock(&file)?;
+                        return Ok(()); // Existing head is newer or same
                     }
                 }
             }
-        }
 
-        let content = format!("{} {}", id.as_str(), created_at.to_rfc3339());
-        let _ = std::fs::write(&head_path, content);
+            let content = format!("{} {}", id.as_str(), created_at.to_rfc3339());
+            file.set_len(0)?;
+            (&file).seek(SeekFrom::Start(0))?;
+            (&file).write_all(content.as_bytes())?;
+            fs2::FileExt::unlock(&file)?;
+            Ok(())
+        })();
+        let _ = result;
     }
 
     /// Read the engram-head pointer file. Returns the ID if valid.
+    ///
+    /// Uses a shared lock so a read never observes a torn write from a
+    /// concurrent `update_head_pointer`.
     fn read_head_pointer(&self) -> Option<String> {
+        use std::io::Read as _;
+
         let head_path = self.repo.path().join(ENGRAM_HEAD_FILE);
-        let content = std::fs::read_to_string(&head_path).ok()?;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .open(&head_path)
+            .ok()?;
+        fs2::FileExt::lock_shared(&file).ok()?;
+        let mut content = String::new();
+        (&file).read_to_string(&mut content).ok()?;
+        fs2::FileExt::unlock(&file).ok();
         content.split_whitespace().next().map(String::from)
     }
 
@@ -411,6 +447,56 @@ mod tests {
         // No filter
         let all = storage.list(&ListOptions::default()).unwrap();
         assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn test_head_pointer_tracks_newest() {
+        use chrono::Duration;
+
+        let tmp = TempDir::new().unwrap();
+        Repository::init(tmp.path()).unwrap();
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let base = Utc::now();
+
+        // Create an older engram, then a newer one.
+        let mut older = make_test_data();
+        older.manifest.created_at = base;
+        let older_id = storage.create(&older).unwrap();
+
+        let mut newer = make_test_data();
+        newer.manifest.created_at = base + Duration::seconds(10);
+        let newer_id = storage.create(&newer).unwrap();
+
+        // HEAD resolves to the newest engram.
+        assert_eq!(storage.resolve("HEAD").unwrap(), newer_id.as_str());
+
+        // Creating an engram with an *older* timestamp must not move HEAD back.
+        let mut stale = make_test_data();
+        stale.manifest.created_at = base - Duration::seconds(10);
+        storage.create(&stale).unwrap();
+        assert_eq!(storage.resolve("HEAD").unwrap(), newer_id.as_str());
+
+        // Sanity: the older engram is still readable, HEAD is not it.
+        assert_ne!(storage.resolve("HEAD").unwrap(), older_id.as_str());
+    }
+
+    #[test]
+    fn test_head_pointer_repaired_after_deletion() {
+        let tmp = TempDir::new().unwrap();
+        Repository::init(tmp.path()).unwrap();
+        let storage = GitStorage::open(tmp.path()).unwrap();
+        storage.init().unwrap();
+
+        let data = make_test_data();
+        let id = storage.create(&data).unwrap();
+        assert_eq!(storage.resolve("HEAD").unwrap(), id.as_str());
+
+        // Delete the engram the pointer references; resolve must fall back to
+        // the O(n) scan and not return a dangling id.
+        storage.delete(id.as_str()).unwrap();
+        assert!(storage.resolve("HEAD").is_err());
     }
 
     #[test]
