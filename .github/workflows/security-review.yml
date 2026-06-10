@@ -1,0 +1,20 @@
+name: Security Review
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  security:
+    # Per-PR deep audit when the 'security-review' label is added. Additive to
+    # AI Code Review, not on every PR. (Upstream action only scans pull_request
+    # events, so there is no full-repo/dispatch mode.)
+    if: ${{ github.event.label.name == 'security-review' }}
+    uses: AtticAIInc/.github/.github/workflows/security-review.yml@main
+    # Pass only the one secret the workflow needs, not the whole org set.
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
