@@ -1,0 +1,13 @@
+name: ClickUp Sync
+
+on:
+  pull_request:
+    types: [opened, closed, ready_for_review, labeled]
+
+jobs:
+  sync:
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: AtticAIInc/.github/.github/workflows/clickup-sync.yml@main
+    secrets: inherit
